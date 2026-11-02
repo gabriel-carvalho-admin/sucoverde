@@ -338,6 +338,10 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
     <div class="tile"><span>Sobra de caixa</span><b id="kCaixa">—</b><em>vendas − taxas − impostos − compras − fixos</em></div>
   </div>
   <div class="grid2">
+    <div class="box chartbox"><h3>Gasto por categoria</h3><div class="pie-row"><div class="cwrap pie"><canvas id="cCmpCat" role="img" aria-label="Pizza de gasto por categoria"></canvas></div><ul class="legend" id="lCmpCat"></ul></div></div>
+    <div class="box chartbox"><h3>Gasto por subcategoria</h3><div class="cwrap tall"><canvas id="cCmpSub" role="img" aria-label="Gasto por subcategoria"></canvas></div></div>
+  </div>
+  <div class="grid2">
     <div class="box chartbox"><h3>Gasto por local</h3><div class="pie-row"><div class="cwrap pie"><canvas id="cCmpLoja" role="img" aria-label="Pizza de gasto por local de compra"></canvas></div><ul class="legend" id="lCmpLoja"></ul></div></div>
     <div class="box chartbox"><h3>Itens com maior gasto</h3><div class="cwrap tall"><canvas id="cCmpItem" role="img" aria-label="Itens com maior gasto"></canvas></div></div>
   </div>
@@ -629,27 +633,29 @@ function renderProdutos(S){
 function baseQty(i){const q=+i.qtd||0,c=+i.conteudo||0,u=i.unidade||"";if(!c)return {v:q,u:"un"};if(u==="g")return {v:q*c/1000,u:"kg"};if(u==="ml")return {v:q*c/1000,u:"L"};return {v:q*c,u:u||"un"}}
 function renderCompras(S){
   const tot=COMPRAS.reduce((a,c)=>a+(+c.total||0),0);
-  const byL={},byI={},pr={};
+  const byL={},byI={},pr={},byC={},byS={};
   COMPRAS.forEach(c=>{const l=(c.loja||"").startsWith("Avulsa")?"Avulsa":c.loja||"Sem local";byL[l]=(byL[l]||0)+(+c.total||0);
-    (c.itens||[]).forEach(i=>{byI[i.nome]=(byI[i.nome]||0)+(+i.total||0);const b=baseQty(i);const k=i.nome+"|"+b.u;const p=pr[k]||(pr[k]={n:i.nome,u:b.u,q:0,t:0,min:Infinity,max:0});p.q+=b.v;p.t+=+i.total||0;if(b.v>0){const x=(+i.total||0)/b.v;p.min=Math.min(p.min,x);p.max=Math.max(p.max,x)}})});
+    (c.itens||[]).forEach(i=>{byI[i.nome]=(byI[i.nome]||0)+(+i.total||0);const cc=i.categoria||"Sem categoria",ss=i.subcategoria||"Sem subcategoria";byC[cc]=(byC[cc]||0)+(+i.total||0);byS[ss]=(byS[ss]||0)+(+i.total||0);const b=baseQty(i);const k=i.nome+"|"+b.u;const p=pr[k]||(pr[k]={n:i.nome,cat:(i.categoria||"")+(i.subcategoria?" › "+i.subcategoria:""),u:b.u,q:0,t:0,min:Infinity,max:0});p.q+=b.v;p.t+=+i.total||0;if(b.v>0){const x=(+i.total||0)/b.v;p.min=Math.min(p.min,x);p.max=Math.max(p.max,x)}})});
   $("kCmp").textContent=brl(tot); $("kCmpN").textContent=COMPRAS.length+(COMPRAS.length===1?" compra":" compras");
   const top=Object.entries(byL).sort((a,b)=>b[1]-a[1])[0];
   $("kCmpTop").textContent=top?top[0]:"—"; $("kCmpTopV").textContent=top?brl(top[1]):"";
   $("kCmpPct").textContent=S.fat?pct(tot/S.fat):"—";
   const caixa=S.fat-S.imp-S.taxas-tot-S.cf; $("kCaixa").textContent=brl(caixa); $("kCaixa").classList.toggle("neg",caixa<0);
-  pie("cCmpLoja","lCmpLoja",byL);
+  pie("cCmpLoja","lCmpLoja",byL); pie("cCmpCat","lCmpCat",byC);
+  const ts=Object.entries(byS).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  chart("cCmpSub",barCfg(ts.map(x=>x[0]),ts.map(x=>r2(x[1])),{horizontal:true,color:COLORS[2]}));
   const ti=Object.entries(byI).sort((a,b)=>b[1]-a[1]).slice(0,10);
   chart("cCmpItem",barCfg(ti.map(x=>x[0]),ti.map(x=>r2(x[1])),{horizontal:true,color:COLORS[1]}));
   const pl=Object.values(pr).sort((a,b)=>b.t-a.t);
   const qf=v=>(Math.round(v*100)/100).toString().replace(".",",");
-  $("cmpPrices").innerHTML=pl.length?`<thead><tr><th>Item</th><th class="num">Quantidade</th><th class="num">Gasto</th><th class="num">Preço médio</th><th class="num">Menor – maior</th></tr></thead><tbody>`+
-    pl.map(p=>`<tr><td>${esc(p.n)}</td><td class="num">${qf(p.q)} ${esc(p.u)}</td><td class="num">${brl(p.t)}</td><td class="num"><b>${p.q?brl(p.t/p.q):"—"}</b>/${esc(p.u)}</td><td class="num">${isFinite(p.min)?(p.min===p.max?brl(p.min):brl(p.min)+" – "+brl(p.max)):"—"}</td></tr>`).join("")+"</tbody>":`<tbody><tr><td class="empty">Nenhuma compra lançada no período.</td></tr></tbody>`;
+  $("cmpPrices").innerHTML=pl.length?`<thead><tr><th>Item</th><th>Categoria</th><th class="num">Quantidade</th><th class="num">Gasto</th><th class="num">Preço médio</th><th class="num">Menor – maior</th></tr></thead><tbody>`+
+    pl.map(p=>`<tr><td>${esc(p.n)}</td><td>${esc(p.cat||"—")}</td><td class="num">${qf(p.q)} ${esc(p.u)}</td><td class="num">${brl(p.t)}</td><td class="num"><b>${p.q?brl(p.t/p.q):"—"}</b>/${esc(p.u)}</td><td class="num">${isFinite(p.min)?(p.min===p.max?brl(p.min):brl(p.min)+" – "+brl(p.max)):"—"}</td></tr>`).join("")+"</tbody>":`<tbody><tr><td class="empty">Nenhuma compra lançada no período.</td></tr></tbody>`;
   $("cmpList").innerHTML=COMPRAS.length?`<thead><tr><th>Data</th><th>Local</th><th>Itens</th><th>Pagamento</th><th class="num">Valor</th></tr></thead><tbody>`+
     COMPRAS.map(c=>`<tr><td>${br(c.dia)}</td><td>${esc(c.loja)}</td><td>${esc((c.itens||[]).map(i=>i.nome).join(", "))}</td><td>${esc(c.pagamento||"—")}</td><td class="num">${brl(c.total)}</td></tr>`).join("")+"</tbody>":`<tbody><tr><td class="empty">Nenhuma compra lançada no período.</td></tr></tbody>`;
 }
 $("cmpCsv").addEventListener("click",()=>{
-  const rows=[["Data","Local","Tipo","Pagamento","Observação","Item","Marca","Qtd embalagens","Conteúdo","Unidade","Valor (R$)","Preço por embalagem (R$)"]];
-  COMPRAS.forEach(c=>(c.itens||[]).forEach(i=>rows.push([brY(c.dia),c.loja||"",c.tipo==="avulsa"?"Avulsa":"Loja",c.pagamento||"",c.obs||"",i.nome,i.marca||"",String(i.qtd).replace(".",","),i.conteudo?String(i.conteudo).replace(".",","):"",i.unidade||"",+i.total||0,(+i.total||0)/((+i.qtd)||1)])));
+  const rows=[["Data","Local","Tipo","Pagamento","Observação","Item","Categoria","Subcategoria","Marca","Qtd embalagens","Conteúdo","Unidade","Valor (R$)","Preço por embalagem (R$)"]];
+  COMPRAS.forEach(c=>(c.itens||[]).forEach(i=>rows.push([brY(c.dia),c.loja||"",c.tipo==="avulsa"?"Avulsa":"Loja",c.pagamento||"",c.obs||"",i.nome,i.categoria||"",i.subcategoria||"",i.marca||"",String(i.qtd).replace(".",","),i.conteudo?String(i.conteudo).replace(".",","):"",i.unidade||"",+i.total||0,(+i.total||0)/((+i.qtd)||1)])));
   download("suco-verde-compras_"+fileTag()+".csv",rows);
 });
 

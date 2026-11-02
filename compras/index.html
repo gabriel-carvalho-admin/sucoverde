@@ -208,6 +208,9 @@ button.rm{color:var(--danger)}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:130px;z-index:30;background:var(--ink);color:#fff;font-weight:700;border-radius:999px;padding:10px 18px;box-shadow:0 6px 18px rgba(0,0,0,.2);max-width:90%;text-align:center}
 .login{margin-top:30px}
 .login h2{font-family:var(--display);color:var(--bark);margin:0 0 6px}
+.catchip{display:inline-block;margin-left:6px;background:#eef6e6;color:var(--leaf);font-size:.72rem;font-weight:800;border-radius:6px;padding:1px 7px;vertical-align:2px}
+.newcat{margin-top:4px;background:#f4f9ee;border:1px solid #d5e8c4;border-radius:12px;padding:4px 10px 10px}
+select:disabled{opacity:.6}
 </style>
 </head>
 <body>
@@ -246,11 +249,6 @@ button.rm{color:var(--danger)}
       <button type="button" role="radio" data-loja="Ceasa">Ceasa</button>
       <button type="button" role="radio" data-loja="__avulsa" class="avulsa">Compra avulsa</button>
     </div>
-    <div id="avulsaBox" hidden>
-      <label class="lbl" for="avFrom">Comprou de quem? <small>(opcional)</small></label>
-      <input type="text" id="avFrom" list="avList" placeholder="Ex.: padaria do bairro, feirante, vizinho">
-      <datalist id="avList"></datalist>
-    </div>
     <div class="two">
       <div><label class="lbl" for="cDate">Data</label><input type="date" id="cDate"></div>
       <div><label class="lbl" for="cPay">Pagou com</label>
@@ -271,6 +269,21 @@ button.rm{color:var(--danger)}
       <ul class="ac-list" id="acList" role="listbox" hidden></ul>
     </div>
     <div class="last" id="lastBox" hidden></div>
+
+    <div class="two">
+      <div>
+        <label class="lbl" for="iCat">Categoria</label>
+        <select id="iCat"></select>
+      </div>
+      <div>
+        <label class="lbl" for="iSub">Subcategoria</label>
+        <select id="iSub"></select>
+      </div>
+    </div>
+    <div class="newcat" id="newCatBox" hidden>
+      <label class="lbl" for="newCat" id="newCatLbl">Nova categoria</label>
+      <div class="money"><input type="text" id="newCat" placeholder="Ex.: Doces"><button type="button" class="btn solid" id="newCatOk">Criar</button><button type="button" class="btn" id="newCatX">Cancelar</button></div>
+    </div>
 
     <label class="lbl" for="iBrand">Marca <small>(opcional)</small></label>
     <input type="text" id="iBrand" list="brandList" autocomplete="off">
@@ -334,7 +347,9 @@ const IMG=JSON.parse($("imgData").textContent);
 document.querySelectorAll("[data-img]").forEach(im=>{if(IMG[im.dataset.img])im.src=IMG[im.dataset.img]});
 
 /* itens comuns de lanchonete para começar (o banco cresce sozinho com o que você compra) */
-const SEED=[["Pão francês","kg"],["Pão de forma","un"],["Queijo mussarela","kg"],["Queijo coalho","kg"],["Presunto","kg"],["Requeijão","g"],["Manteiga","g"],["Margarina","g"],["Carne de sol","kg"],["Frango (peito)","kg"],["Ovos","un"],["Flocão de milho (cuscuz)","g"],["Goma de tapioca","kg"],["Massa de pizza","un"],["Molho de tomate","g"],["Orégano","g"],["Salgados congelados","un"],["Leite integral","L"],["Leite em pó","g"],["Café em pó","g"],["Açúcar","kg"],["Adoçante","ml"],["Sal","kg"],["Óleo de soja","ml"],["Polpa de acerola","g"],["Polpa de cajá","g"],["Polpa de goiaba","g"],["Polpa de maracujá","g"],["Laranja","kg"],["Limão","kg"],["Couve","un"],["Gengibre","kg"],["Hortelã","un"],["Matruz","un"],["Água mineral 500 ml","un"],["Água mineral com gás","un"],["Refrigerante lata","un"],["Refrigerante 1L","un"],["Refrigerante 2L","un"],["Refrigerante 200 ml","un"],["Copo descartável 300 ml","un"],["Copo descartável 500 ml","un"],["Copo 700 ml com tampa","un"],["Canudo","un"],["Guardanapo","un"],["Embalagem para lanche","un"],["Sacola plástica","un"],["Papel toalha","un"],["Detergente","ml"],["Água sanitária","L"],["Esponja","un"],["Gás de cozinha (botijão)","un"],["Gelo","kg"]];
+const A="Alimentos",BB="Bebidas",EM="Embalagens e descartáveis",LI="Limpeza e higiene",GG="Gás e gelo";
+const SEED=[["Pão francês","kg",A,"Pães e massas"],["Pão de forma","un",A,"Pães e massas"],["Queijo mussarela","kg",A,"Laticínios e frios"],["Queijo coalho","kg",A,"Laticínios e frios"],["Presunto","kg",A,"Laticínios e frios"],["Requeijão","g",A,"Laticínios e frios"],["Manteiga","g",A,"Laticínios e frios"],["Margarina","g",A,"Laticínios e frios"],["Carne de sol","kg",A,"Carnes e ovos"],["Frango (peito)","kg",A,"Carnes e ovos"],["Ovos","un",A,"Carnes e ovos"],["Flocão de milho (cuscuz)","g",A,"Mercearia"],["Goma de tapioca","kg",A,"Mercearia"],["Massa de pizza","un",A,"Pães e massas"],["Molho de tomate","g",A,"Mercearia"],["Orégano","g",A,"Mercearia"],["Salgados congelados","un",A,"Congelados"],["Leite integral","L",BB,"Café e leite"],["Leite em pó","g",BB,"Café e leite"],["Café em pó","g",BB,"Café e leite"],["Açúcar","kg",A,"Mercearia"],["Adoçante","ml",A,"Mercearia"],["Sal","kg",A,"Mercearia"],["Óleo de soja","ml",A,"Mercearia"],["Polpa de acerola","g",A,"Frutas e polpas"],["Polpa de cajá","g",A,"Frutas e polpas"],["Polpa de goiaba","g",A,"Frutas e polpas"],["Polpa de maracujá","g",A,"Frutas e polpas"],["Laranja","kg",A,"Frutas e polpas"],["Limão","kg",A,"Frutas e polpas"],["Couve","un",A,"Hortifrúti"],["Gengibre","kg",A,"Hortifrúti"],["Hortelã","un",A,"Hortifrúti"],["Matruz","un",A,"Hortifrúti"],["Água mineral 500 ml","un",BB,"Águas"],["Água mineral com gás","un",BB,"Águas"],["Refrigerante lata","un",BB,"Refrigerantes"],["Refrigerante 1L","un",BB,"Refrigerantes"],["Refrigerante 2L","un",BB,"Refrigerantes"],["Refrigerante 200 ml","un",BB,"Refrigerantes"],["Copo descartável 300 ml","un",EM,"Copos e tampas"],["Copo descartável 500 ml","un",EM,"Copos e tampas"],["Copo 700 ml com tampa","un",EM,"Copos e tampas"],["Canudo","un",EM,"Guardanapos e canudos"],["Guardanapo","un",EM,"Guardanapos e canudos"],["Embalagem para lanche","un",EM,"Embalagens"],["Sacola plástica","un",EM,"Sacolas"],["Papel toalha","un",LI,"Utensílios de limpeza"],["Detergente","ml",LI,"Produtos de limpeza"],["Água sanitária","L",LI,"Produtos de limpeza"],["Esponja","un",LI,"Utensílios de limpeza"],["Gás de cozinha (botijão)","un",GG,"Gás de cozinha"],["Gelo","kg",GG,"Gelo"]];
+const DEFAULT_CATS={"Alimentos":["Pães e massas","Laticínios e frios","Carnes e ovos","Frutas e polpas","Hortifrúti","Mercearia","Congelados"],"Bebidas":["Refrigerantes","Águas","Café e leite"],"Embalagens e descartáveis":["Copos e tampas","Embalagens","Guardanapos e canudos","Sacolas"],"Limpeza e higiene":["Produtos de limpeza","Utensílios de limpeza"],"Gás e gelo":["Gás de cozinha","Gelo"],"Equipamentos e utensílios":["Utensílios de cozinha","Manutenção"],"Outros":["Diversos"]};
 
 /* ---------- Firebase ---------- */
 const FB_V="12.19.0";
@@ -350,11 +365,13 @@ function backend(){
       onAuth(cb){return U.onAuthStateChanged(auth,u=>cb(u?{email:u.email}:null))},
       signIn(e,p){return U.signInWithEmailAndPassword(auth,e,p)},
       async catalog(){const s=await F.getDoc(F.doc(db,"catalogo","itens"));return s.exists()?(s.data().itens||{}):{}},
-      async save(compra,catPatch){
+      async categories(){const s=await F.getDoc(F.doc(db,"catalogo","categorias"));return s.exists()?(s.data().lista||{}):{}},
+      async save(compra,catPatch,catsPatch){
         const ref=F.doc(F.collection(db,"compras"));
         const batch=F.writeBatch(db);
         batch.set(ref,Object.assign({},compra,{criado:F.serverTimestamp()}));
         batch.set(F.doc(db,"catalogo","itens"),{itens:catPatch},{merge:true});
+        if(catsPatch&&Object.keys(catsPatch).length) batch.set(F.doc(db,"catalogo","categorias"),{lista:catsPatch},{merge:true});
         await batch.commit(); return ref.id;
       },
       watchRecent(cb,err){return F.onSnapshot(F.query(F.collection(db,"compras"),F.orderBy("criado","desc"),F.limit(12)),s=>cb(s.docs.map(d=>Object.assign({id:d.id},d.data({serverTimestamps:"estimate"})))),err)},
@@ -367,13 +384,15 @@ let be=null;
 
 /* ---------- estado ---------- */
 const store={get(k,d){try{const v=localStorage.getItem("svc_"+k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem("svc_"+k,JSON.stringify(v))}catch(e){}}};
-let CAT={};           // banco de itens: chave -> {nome, marca, unidade, conteudo, preco (por embalagem), loja, dia, vezes}
+let CAT={};
+let CATS=JSON.parse(JSON.stringify(DEFAULT_CATS));
+function addCat(c,sc){if(!c)return;if(!CATS[c])CATS[c]=[];if(sc&&!CATS[c].includes(sc))CATS[c].push(sc)}           // banco de itens: chave -> {nome, marca, unidade, conteudo, preco (por embalagem), loja, dia, vezes}
 let loja=store.get("loja",""), items=[], unit="", editIdx=-1;
 const draft=store.get("draft",null);
 if(draft&&Array.isArray(draft.items)&&draft.items.length){items=draft.items; if(draft.loja) loja=draft.loja}
 
 function catList(){
-  const m={}; SEED.forEach(([n,u])=>{m[keyOf(n)]={nome:n,unidade:u,vezes:0,seed:true}});
+  const m={}; SEED.forEach(([n,u,c,sc])=>{m[keyOf(n)]={nome:n,unidade:u,categoria:c,subcategoria:sc,vezes:0,seed:true}});
   Object.entries(CAT).forEach(([k,v])=>{m[k]=Object.assign({},m[k]||{},v,{seed:false})});
   return Object.values(m);
 }
@@ -381,10 +400,9 @@ function catList(){
 /* ---------- 1. loja ---------- */
 function renderStores(){
   document.querySelectorAll("#stores button").forEach(b=>b.setAttribute("aria-checked",b.dataset.loja===loja));
-  const av=loja==="__avulsa";
-  $("avulsaBox").hidden=!av;
+
 }
-$("stores").addEventListener("click",e=>{const b=e.target.closest("button[data-loja]");if(!b)return;loja=b.dataset.loja;store.set("loja",loja);$("eHead").textContent="";renderStores();saveDraft();if(loja==="__avulsa")$("avFrom").focus();else if(!items.length)$("iName").focus()});
+$("stores").addEventListener("click",e=>{const b=e.target.closest("button[data-loja]");if(!b)return;loja=b.dataset.loja;store.set("loja",loja);$("eHead").textContent="";renderStores();saveDraft();if(!items.length)$("iName").focus()});
 $("cDate").value=tzDate(new Date());
 
 /* ---------- 2. item com autocompletar ---------- */
@@ -419,6 +437,8 @@ function choose(it){
 function applyLast(it){
   const k=it?keyOf(it.nome):keyOf($("iName").value), c=CAT[k];
   if(it&&it.unidade) setUnit(it.unidade);
+  const src=c&&c.categoria?c:it;
+  setCat(src&&src.categoria||"",src&&src.subcategoria||"");
   if(c){
     $("iBrand").value=c.marca||""; if(c.conteudo) $("iSize").value=fmtN(c.conteudo); if(c.unidade) setUnit(c.unidade);
     $("lastBox").hidden=false;
@@ -471,7 +491,32 @@ $("iTotal").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault(
 $("iSize").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();$("iTotal").focus()}});
 $("iBrand").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();$("iSize").focus()}});
 
-function resetItem(){$("iName").value="";$("iBrand").value="";$("iQty").value="1";$("iSize").value="";$("iTotal").value="";$("calc").innerHTML="";$("lastBox").hidden=true;$("useLast").hidden=true;setUnit("");editIdx=-1;$("addItem").textContent="+ Adicionar item"}
+/* ---------- categoria e subcategoria ---------- */
+let newMode=null;
+function fillCats(sel){
+  const cs=Object.keys(CATS);
+  $("iCat").innerHTML=`<option value="">Escolha…</option>`+cs.map(c=>`<option${c===sel?" selected":""}>${esc(c)}</option>`).join("")+`<option value="__new">+ Nova categoria…</option>`;
+}
+function fillSubs(sel){
+  const c=$("iCat").value, subs=(CATS[c]||[]);
+  $("iSub").disabled=!c||c==="__new";
+  $("iSub").innerHTML=`<option value="">${c?"Escolha…":"—"}</option>`+subs.map(x=>`<option${x===sel?" selected":""}>${esc(x)}</option>`).join("")+(c?`<option value="__new">+ Nova subcategoria…</option>`:"");
+}
+function setCat(c,sc){ if(c) addCat(c,sc); fillCats(c||""); fillSubs(sc||""); }
+$("iCat").addEventListener("change",()=>{ if($("iCat").value==="__new"){openNew("cat");return} fillSubs(""); $("iSub").focus(); });
+$("iSub").addEventListener("change",()=>{ if($("iSub").value==="__new"){openNew("sub")} });
+function openNew(kind){newMode=kind;$("newCatBox").hidden=false;$("newCatLbl").textContent=kind==="cat"?"Nova categoria":"Nova subcategoria em "+$("iCat").value;$("newCat").value="";$("newCat").placeholder=kind==="cat"?"Ex.: Doces":"Ex.: Chocolates";$("newCat").focus()}
+function closeNew(){$("newCatBox").hidden=true;newMode=null}
+$("newCatX").addEventListener("click",()=>{const k=newMode;closeNew();if(k==="cat")fillCats("");fillSubs("")});
+function confirmNew(){
+  const v=$("newCat").value.trim().replace(/^./,c=>c.toUpperCase()); if(!v){$("newCat").focus();return}
+  if(newMode==="cat"){addCat(v);closeNew();setCat(v,"");$("iSub").focus()}
+  else{const c=$("iCat").value;addCat(c,v);closeNew();fillSubs(v)}
+}
+$("newCatOk").addEventListener("click",confirmNew);
+$("newCat").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();confirmNew()}if(e.key==="Escape")$("newCatX").click()});
+
+function resetItem(){$("iName").value="";$("iBrand").value="";$("iQty").value="1";$("iSize").value="";$("iTotal").value="";$("calc").innerHTML="";$("lastBox").hidden=true;$("useLast").hidden=true;setUnit("");setCat("","");closeNew();editIdx=-1;$("addItem").textContent="+ Adicionar item"}
 function addItem(){
   const nome=$("iName").value.trim().replace(/^./,c=>c.toUpperCase()), q=num($("iQty").value), size=num($("iSize").value), t=num($("iTotal").value);
   let err="";
@@ -480,8 +525,10 @@ function addItem(){
   else if(!(t>0)) err="Informe quanto pagou neste item.";
   else if($("iSize").value.trim()&&!(size>0)) err="Confira o conteúdo de cada embalagem.";
   else if(size>0&&!unit) err="Escolha a unidade (kg, g, L, ml ou un).";
+  else if(!$("iCat").value||$("iCat").value==="__new") err="Escolha a categoria do item.";
+  else if(!$("iSub").value||$("iSub").value==="__new") err="Escolha a subcategoria do item.";
   if(err){$("eItem").textContent=err;return}
-  const it={nome,marca:$("iBrand").value.trim(),qtd:q,conteudo:size>0?size:null,unidade:size>0?unit:(unit||""),total:r2(t)};
+  const it={nome,categoria:$("iCat").value,subcategoria:$("iSub").value,marca:$("iBrand").value.trim(),qtd:q,conteudo:size>0?size:null,unidade:size>0?unit:(unit||""),total:r2(t)};
   if(editIdx>=0) items[editIdx]=it; else items.push(it);
   $("eItem").textContent=""; resetItem(); renderItems(); saveDraft();
   toast(nome+" adicionado"); $("iName").focus();
@@ -492,7 +539,7 @@ $("addItem").addEventListener("click",addItem);
 const total=()=>items.reduce((a,i)=>a+i.total,0);
 function renderItems(){
   $("items").innerHTML=items.length?items.map((i,k)=>`<li>
-    <div class="it-main"><b>${esc(i.nome)}</b>${i.marca?` <span class="brand">${esc(i.marca)}</span>`:""}
+    <div class="it-main"><b>${esc(i.nome)}</b>${i.marca?` <span class="brand">${esc(i.marca)}</span>`:""}${i.categoria?`<span class="catchip">${esc(i.categoria)} › ${esc(i.subcategoria||"")}</span>`:""}
       <small>${fmtN(i.qtd)} × ${i.conteudo?fmtN(i.conteudo)+" "+esc(i.unidade):"un"} · ${esc(perUnit(i.qtd,i.conteudo,i.unidade,i.total))}</small></div>
     <b class="it-t">${brl(i.total)}</b>
     <div class="it-act"><button type="button" data-ed="${k}">Editar</button><button type="button" data-rm="${k}" class="rm">Remover</button></div></li>`).join(""):`<li class="empty">Nenhum item ainda.</li>`;
@@ -503,7 +550,7 @@ function renderItems(){
 $("items").addEventListener("click",e=>{
   const ed=e.target.closest("[data-ed]"), rm=e.target.closest("[data-rm]");
   if(rm){items.splice(+rm.dataset.rm,1);renderItems();saveDraft();return}
-  if(ed){const i=items[+ed.dataset.ed];editIdx=+ed.dataset.ed;$("iName").value=i.nome;$("iBrand").value=i.marca||"";$("iQty").value=fmtN(i.qtd);$("iSize").value=i.conteudo?fmtN(i.conteudo):"";setUnit(i.unidade||"");$("iTotal").value=i.total.toFixed(2).replace(".",",");calc();$("addItem").textContent="Salvar alteração";$("itemCard").scrollIntoView({behavior:"smooth"});}
+  if(ed){closeNew();const i=items[+ed.dataset.ed];editIdx=+ed.dataset.ed;$("iName").value=i.nome;$("iBrand").value=i.marca||"";setCat(i.categoria||"",i.subcategoria||"");$("iQty").value=fmtN(i.qtd);$("iSize").value=i.conteudo?fmtN(i.conteudo):"";setUnit(i.unidade||"");$("iTotal").value=i.total.toFixed(2).replace(".",",");calc();$("addItem").textContent="Salvar alteração";$("itemCard").scrollIntoView({behavior:"smooth"});}
 });
 function saveDraft(){store.set("draft",{items,loja})}
 
@@ -513,16 +560,17 @@ $("saveBtn").addEventListener("click",async()=>{
   if(!loja){$("eHead").textContent="Escolha onde foi a compra.";window.scrollTo({top:0,behavior:"smooth"});return}
   if(!items.length) return;
   const dia=$("cDate").value||tzDate(new Date());
-  const lojaNome=loja==="__avulsa"?("Avulsa"+($("avFrom").value.trim()?" – "+$("avFrom").value.trim():"")):loja;
+  const lojaNome=loja==="__avulsa"?"Avulsa":loja;
   const compra={dia,tipo:loja==="__avulsa"?"avulsa":"loja",loja:lojaNome,pagamento:$("cPay").value,obs:$("cObs").value.trim(),total:r2(total()),
-    itens:items.map(i=>({nome:i.nome,marca:i.marca,qtd:i.qtd,conteudo:i.conteudo,unidade:i.unidade,total:i.total}))};
+    itens:items.map(i=>({nome:i.nome,categoria:i.categoria||"Outros",subcategoria:i.subcategoria||"Diversos",marca:i.marca,qtd:i.qtd,conteudo:i.conteudo,unidade:i.unidade,total:i.total}))};
   const patch={};
-  items.forEach(i=>{const k=keyOf(i.nome),old=CAT[k]||{};patch[k]={nome:i.nome,marca:i.marca||old.marca||"",unidade:i.unidade||old.unidade||"",conteudo:i.conteudo||old.conteudo||null,qtd:i.qtd,total:i.total,preco:r2(i.total/i.qtd),loja:lojaNome,dia,vezes:(old.vezes||0)+1}});
+  items.forEach(i=>{const k=keyOf(i.nome),old=CAT[k]||{};patch[k]={nome:i.nome,categoria:i.categoria||old.categoria||"Outros",subcategoria:i.subcategoria||old.subcategoria||"Diversos",marca:i.marca||old.marca||"",unidade:i.unidade||old.unidade||"",conteudo:i.conteudo||old.conteudo||null,qtd:i.qtd,total:i.total,preco:r2(i.total/i.qtd),loja:lojaNome,dia,vezes:(old.vezes||0)+1}});
   $("saveBtn").disabled=true;$("saveBtn").textContent="Salvando…";
   try{
-    await be.save(compra,patch);
+    const cp={}; items.forEach(i=>{if(!i.categoria)return; const d=DEFAULT_CATS[i.categoria]; if(!d||!d.includes(i.subcategoria)){(cp[i.categoria]=cp[i.categoria]||{})[i.subcategoria]=true}});
+    await be.save(compra,patch,cp);
     Object.assign(CAT,patch); items=[]; store.set("draft",null); renderItems(); renderRecent();
-    $("cObs").value=""; $("avFrom").value=""; toast("Compra de "+brl(compra.total)+" salva!"); window.scrollTo({top:0,behavior:"smooth"});
+    $("cObs").value=""; toast("Compra de "+brl(compra.total)+" salva!"); window.scrollTo({top:0,behavior:"smooth"});
   }catch(err){$("eHead").textContent=err&&err.code==="permission-denied"?"Sua conta não tem permissão para lançar compras.":"Não consegui salvar. Confira a internet e tente de novo; os itens continuam aqui.";}
   $("saveBtn").textContent="Salvar compra"; $("saveBtn").disabled=!items.length;
 });
@@ -561,15 +609,16 @@ $("loginForm").addEventListener("submit",async e=>{
 });
 let histUnsub=null;
 (async function(){
-  renderStores(); renderItems(); setUnit("");
+  renderStores(); renderItems(); setUnit(""); setCat("","");
   try{be=await backend()}catch(e){$("loginView").hidden=false;$("lErr").textContent="Não consegui carregar o sistema. Recarregue a página.";return}
   be.onAuth(async u=>{
     if(!u){$("appView").hidden=true;$("saveBar").hidden=true;$("loginView").hidden=false;return}
     $("loginView").hidden=true;$("appView").hidden=false;$("saveBar").hidden=false;
     try{CAT=await be.catalog()}catch(e){note("Não consegui carregar a lista de itens. Você ainda pode digitar normalmente.")}
     renderRecent();
-    const avs=[...new Set(Object.values(CAT).map(x=>x.loja).filter(l=>l&&l.startsWith("Avulsa – ")).map(l=>l.slice(9)))];
-    $("avList").innerHTML=avs.map(a=>`<option value="${esc(a)}">`).join("");
+    try{const saved=await be.categories(); Object.entries(saved).forEach(([c,subs])=>{addCat(c);Object.keys(subs||{}).forEach(sc=>addCat(c,sc))})}catch(e){}
+    Object.values(CAT).forEach(x=>addCat(x.categoria,x.subcategoria)); items.forEach(i=>addCat(i.categoria,i.subcategoria));
+    setCat("","");
     $("brandList").innerHTML=[...new Set(Object.values(CAT).map(x=>x.marca).filter(Boolean))].map(m=>`<option value="${esc(m)}">`).join("");
     if(!histUnsub) histUnsub=be.watchRecent(l=>{recentList=l;renderHist()},()=>{$("hist").innerHTML=`<li class="empty">Não consegui carregar as últimas compras.</li>`});
   });
