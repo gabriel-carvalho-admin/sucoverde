@@ -212,6 +212,8 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
 .tbl tr.miss td{color:var(--muted);background:#fbf6ec}
 .tbl tr.totrow td{font-weight:800;border-top:2px solid var(--line)}
 .note a{color:var(--leaf);font-weight:800}
+.dre tr.dre-det th{font-weight:600;color:var(--muted);font-size:.9rem;padding-left:16px}
+.dre tr.dre-det td{color:var(--muted);font-size:.9rem}
 </style>
 </head>
 <body>
@@ -402,9 +404,10 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
         <label>Cartão de débito <span><input type="text" inputmode="decimal" id="rDeb"> %</span></label>
         <label>Cartão de crédito <span><input type="text" inputmode="decimal" id="rCred"> %</span></label>
         <label>Pix <span><input type="text" inputmode="decimal" id="rPix"> %</span></label>
+        <label>Máquina de cartão no fechamento (média) <span><input type="text" inputmode="decimal" id="rMaq" placeholder="auto"> %</span></label>
         <label>Imposto sobre o faturamento <span><input type="text" inputmode="decimal" id="rImp"> %</span></label>
       </div>
-      <p class="sub">Imposto: use a alíquota do seu regime (no Simples Nacional, o contador informa a alíquota efetiva).</p>
+      <p class="sub">No fechamento de caixa o cartão vem somado (débito + crédito). Se deixar a média em branco, uso a média entre débito e crédito. Imposto: use a alíquota do seu regime (no Simples Nacional, o contador informa a alíquota efetiva).</p>
     </div>
   </div>
   <div class="ad-foot">
@@ -534,27 +537,49 @@ function fixedMonthly(){return (CFG.fixos||[]).reduce((a,f)=>a+(+f.valor||0),0)}
 function fixedFactor(){return period==="dia"?1/WORKDAYS:period==="semana"?6/WORKDAYS:period==="mes"?1:12}
 function feeOf(p){const t=CFG.taxas||{};return p==="Cartão de débito"?(+t.debito||0)/100:p==="Cartão de crédito"?(+t.credito||0)/100:p==="Pix"?(+t.pix||0)/100:0}
 
+function machineRate(){const t=CFG.taxas||{};if(t.maquina!=null&&t.maquina!=="")return (+t.maquina||0)/100;return ((+t.debito||0)+(+t.credito||0))/200}
 function compute(orders){
   const ok=orders.filter(o=>o.status!=="cancelado");
   const xp=extraPrices();
-  const prod={}; let fat=0,taxas=0,cmv=0,csv=0;
+  const prod={}; let fatO=0,taxas=0,cmv=0,csv=0;
   const add=(n,q,rev)=>{const c=costOf(n);const p=prod[n]||(prod[n]={n,tipo:c.tipo,q:0,fat:0,custo:0,unit:c.custo});p.q+=q;p.fat+=rev;p.custo+=q*c.custo;if(c.tipo==="servico")csv+=q*c.custo;else cmv+=q*c.custo};
+  const cx={}; CAIXA.forEach(c=>{if(c&&c.dia)cx[c.dia]=c});
+  const dayO={}, byPay={}, byOrig={}, byDay={};
   ok.forEach(o=>{
-    const t=+o.total||0; fat+=t; taxas+=t*feeOf(o.pagamento);
+    const t=+o.total||0; fatO+=t; dayO[o.dia]=(dayO[o.dia]||0)+t;
+    if(!cx[o.dia]){taxas+=t*feeOf(o.pagamento);const k=o.pagamento||"Não informado";byPay[k]=(byPay[k]||0)+t}
+    const g=ORIG[o.origem]||"Outro";byOrig[g]=(byOrig[g]||0)+t;
     (o.itens||[]).forEach(i=>{
       const q=+i.q||0, v=+i.v||0; let base=v;
       (i.ex||[]).forEach(x=>{const pr=(xp[x]||0)*q; if(pr>0&&pr<=base){base-=pr;add(x,q,pr)} else add(x,q,0)});
       add(i.n,q,base);
     });
   });
+  Object.entries(dayO).forEach(([d,v])=>byDay[d]=v);
+  // caixa fechado: a venda bruta do caixa é o valor oficial do dia
+  const rCmv=fatO>0?cmv/fatO:0, rCsv=fatO>0?csv/fatO:0;
+  let fat=fatO, banca=0, ajuste=0, equipe=0, diasCx=0, cmvEst=0;
+  const t=CFG.taxas||{};
+  Object.values(cx).forEach(c=>{
+    diasCx++;
+    const vb=+c.vendaBruta||0, reg=dayO[c.dia]||0, extra=vb-reg;
+    fat+=extra; if(extra>0)banca+=extra; else ajuste+=extra;
+    byDay[c.dia]=vb;
+    const pg=c.pagamentos?Object.values(c.pagamentos).reduce((a,x)=>a+(+x||0),0):0; equipe+=pg;
+    const din=(+c.dinheiro||0)+(+c.compras||0)+pg;
+    byPay["Dinheiro"]=(byPay["Dinheiro"]||0)+din; byPay["Pix"]=(byPay["Pix"]||0)+(+c.pix||0); byPay["Máquina de cartão"]=(byPay["Máquina de cartão"]||0)+(+c.cartao||0);
+    taxas+=(+c.pix||0)*((+t.pix||0)/100)+(+c.cartao||0)*machineRate();
+    if(extra>0){cmvEst+=extra*rCmv;cmv+=extra*rCmv;csv+=extra*rCsv}
+  });
+  if(banca>0) byOrig["Banca sem registro (caixa)"]=banca;
+  const site=ok.filter(o=>o.origem==="site").reduce((a,o)=>a+(+o.total||0),0);
   const imp=fat*((+CFG.imposto||0)/100);
-  const rl=fat-imp-taxas, lb=rl-cmv-csv, cf=fixedMonthly()*fixedFactor(), ll=lb-cf;
+  const rl=fat-imp-taxas, lb=rl-cmv-csv, cf=fixedMonthly()*fixedFactor(), ll=lb-equipe-cf;
   const mc=fat>0?lb/fat:NaN, pe=mc>0?fixedMonthly()/mc:NaN;
   Object.values(prod).forEach(p=>{p.lucro=p.fat-p.custo;p.margem=p.fat>0?p.lucro/p.fat:NaN});
-  const byPay={}, byOrig={};
-  ok.forEach(o=>{const k=o.pagamento||"Não informado";byPay[k]=(byPay[k]||0)+(+o.total||0);const g=ORIG[o.origem]||"Outro";byOrig[g]=(byOrig[g]||0)+(+o.total||0)});
+  Object.keys(byPay).forEach(k=>{if(!(byPay[k]>0))delete byPay[k]});
   const noCost=Object.values(prod).filter(p=>p.q>0&&!CFG.custos[p.n]).length;
-  return {ok,fat,n:ok.length,ticket:ok.length?fat/ok.length:0,imp,taxas,rl,cmv,csv,lb,cf,ll,mc,pe,prod,byPay,byOrig,noCost};
+  return {site,bancaTot:fat-site,ok,fat,fatO,n:ok.length,ticket:ok.length?fatO/ok.length:0,imp,taxas,rl,cmv,csv,lb,cf,ll,mc,pe,prod,byPay,byOrig,noCost,banca,ajuste,equipe,diasCx,cmvEst,byDay};
 }
 
 /* ---------- gráficos ---------- */
@@ -583,7 +608,7 @@ function renderResumo(S){
   const [a,b]=range();
   $("kFat").textContent=brl(S.fat);
   const nd=daysBetween(a,b>tzDate(new Date())?tzDate(new Date()):b).filter(d=>dow(d)!==0).length;
-  $("kFatSub").textContent=period==="dia"?"":"média de "+brl(nd?S.fat/nd:0)+" por dia aberto";
+  $("kFatSub").textContent=(S.diasCx?(S.diasCx===1?"com caixa fechado":S.diasCx+" dias com caixa fechado")+(S.bancaTot?" · "+brl(S.bancaTot)+" na banca":"")+(period==="dia"?"":" · "):"")+(period==="dia"?(S.diasCx?"":"só pedidos registrados (caixa não fechado)"):"média de "+brl(nd?S.fat/nd:0)+" por dia aberto");
   $("kPed").textContent=S.n; $("kTicket").textContent="ticket médio "+brl(S.ticket);
   $("kLB").textContent=brl(S.lb); $("kLBm").textContent="margem "+pct(S.fat?S.lb/S.fat:NaN);
   $("kLL").textContent=brl(S.ll); $("kLLm").textContent="margem "+pct(S.fat?S.ll/S.fat:NaN);
@@ -606,25 +631,25 @@ function renderResumo(S){
     $("cTimeTitle").textContent="Faturamento por hora";
     chart("cTime",barCfg(ks.map(k=>k+"h"),ks.map(k=>r2(h[k]))));
   } else if(period==="ano"){
-    const m=Array(12).fill(0);S.ok.forEach(o=>{m[+o.dia.slice(5,7)-1]+=+o.total||0});
+    const m=Array(12).fill(0);Object.entries(S.byDay).forEach(([d,v])=>{m[+d.slice(5,7)-1]+=v});
     $("cTimeTitle").textContent="Faturamento mensal";
     chart("cTime",barCfg(MES3,m.map(r2)));
   } else {
     const ds=daysBetween(a,b).filter(d=>dow(d)!==0), m={};ds.forEach(d=>m[d]=0);
-    S.ok.forEach(o=>{if(o.dia in m)m[o.dia]+=+o.total||0});
+    Object.entries(S.byDay).forEach(([d,v])=>{if(d in m)m[d]=v});
     $("cTimeTitle").textContent="Faturamento por dia";
     chart("cTime",barCfg(ds.map(d=>period==="semana"?WD[dow(d)]+" "+br(d):d.slice(8)),ds.map(d=>r2(m[d]))));
   }
   pie("cPay","lPay",S.byPay); pie("cOrig","lOrig",S.byOrig);
   // DRE
-  const rows=[["Faturamento bruto",S.fat,"dre-tot"],["(−) Impostos sobre vendas",-S.imp],["(−) Taxas de cartão e Pix",-S.taxas],["= Receita líquida",S.rl,"dre-sub"],
+  const rows=[["Faturamento bruto",S.fat,"dre-tot"],["   Pedidos pelo site",S.site,"dre-det"],["   Vendido na banca",S.bancaTot,"dre-det"],["(−) Impostos sobre vendas",-S.imp],["(−) Taxas de cartão e Pix",-S.taxas],["= Receita líquida",S.rl,"dre-sub"],
     ["(−) CMV – custo das mercadorias vendidas",-S.cmv],["(−) CSV – custo dos serviços vendidos",-S.csv],["= Lucro bruto",S.lb,"dre-sub"],
-    ["(−) Custos fixos do período",-S.cf],["= Lucro líquido",S.ll,"dre-tot"]];
-  $("dre").innerHTML=rows.map(([k,v,c])=>`<tr class="${c||""}"><th scope="row">${k}</th><td class="${v<0&&c?"neg":""}">${brl(v)}</td><td class="pc">${S.fat?pct(v/S.fat):""}</td></tr>`).join("")+
+    ...(S.equipe?[["(−) Pagamentos à equipe (caixa)",-S.equipe]]:[]),["(−) Custos fixos do período",-S.cf],["= Lucro líquido",S.ll,"dre-tot"]];
+  $("dre").innerHTML=rows.map(([k,v,c])=>`<tr class="${c||""}"><th scope="row">${k}</th><td class="${v<0&&c?"neg":""}">${brl(v)}</td><td class="pc">${S.fat&&c!=="dre-det"?pct(v/S.fat):""}</td></tr>`).join("")+
     `<tr><td colspan="3" class="dre-dl"><button type="button" class="btn" id="dreCsv">Baixar DRE em CSV</button></td></tr>`;
   $("dreCsv").onclick=exportDre;
   const ctot=COMPRAS.reduce((a,c)=>a+(+c.total||0),0);
-  $("dreNote").textContent=(ctot?"Compras lançadas no período: "+brl(ctot)+" (veja a aba Compras). ":"")+"Custos fixos: "+brl(fixedMonthly())+" por mês"+(period==="dia"?", divididos por "+WORKDAYS+" dias abertos.":period==="semana"?", proporcional a 6 dias abertos.":period==="ano"?" × 12 meses.":".");
+  $("dreNote").textContent=(S.diasCx?"Dias com caixa fechado usam a venda bruta do caixa. O CMV das vendas sem registro no painel é estimado pela mesma proporção dos pedidos registrados"+(S.cmvEst?" ("+brl(S.cmvEst)+")":"")+". ":"Nenhum dia com caixa fechado: o faturamento vem só dos pedidos registrados. ")+(S.equipe?"Pagamentos à equipe saem do caixa; não repita esses valores nos custos fixos. ":"")+(ctot?"Compras lançadas no período: "+brl(ctot)+" (veja a aba Compras). ":"")+"Custos fixos: "+brl(fixedMonthly())+" por mês"+(period==="dia"?", divididos por "+WORKDAYS+" dias abertos.":period==="semana"?", proporcional a 6 dias abertos.":period==="ano"?" × 12 meses.":".");
   // ano
   $("yearBox").hidden=period!=="ano";
 }
@@ -754,7 +779,7 @@ function renderConfig(){
   $("cfgCosts").dataset.names=JSON.stringify(names);
   renderFixed();
   const t=CFG.taxas||{};const f=v=>(+v||0).toString().replace(".",",");
-  $("rDeb").value=f(t.debito);$("rCred").value=f(t.credito);$("rPix").value=f(t.pix);$("rImp").value=f(CFG.imposto);
+  $("rDeb").value=f(t.debito);$("rCred").value=f(t.credito);$("rPix").value=f(t.pix);$("rMaq").value=t.maquina==null?"":f(t.maquina);$("rImp").value=f(CFG.imposto);
 }
 let fixedDraft=[];
 function renderFixed(){
@@ -773,8 +798,8 @@ $("cfgSave").addEventListener("click",async()=>{
     const v=num(raw); if(isNaN(v)||v<0){bad=bad||n;ci.classList.add("bad");return} ci.classList.remove("bad"); custos[n]={custo:r2(v),tipo:ti.value}});
   const fixos=[];fixedDraft.forEach(f=>{const v=num(f.valor);if(String(f.nome).trim()||v>0){if(isNaN(v)||v<0)bad=bad||(f.nome||"custo fixo");else fixos.push({nome:String(f.nome).trim()||"Custo fixo",valor:r2(v)})}});
   const rate=id=>{const v=num($(id).value);return isNaN(v)?0:v};
-  const rates={debito:rate("rDeb"),credito:rate("rCred"),pix:rate("rPix")}, imposto=rate("rImp");
-  if([rates.debito,rates.credito,rates.pix,imposto].some(v=>v<0||v>100)) bad=bad||"as taxas (use de 0 a 100)";
+  const rates={debito:rate("rDeb"),credito:rate("rCred"),pix:rate("rPix"),maquina:$("rMaq").value.trim()===""?null:rate("rMaq")}, imposto=rate("rImp");
+  if([rates.debito,rates.credito,rates.pix,rates.maquina||0,imposto].some(v=>v<0||v>100)) bad=bad||"as taxas (use de 0 a 100)";
   if(bad){$("cfgMsg").textContent="Confira o valor de "+bad+". Use só números, como 3,50.";return}
   const d={custos,fixos,taxas:rates,imposto,atualizado:Date.now()};
   $("cfgSave").disabled=true;$("cfgSave").textContent="Salvando...";$("cfgMsg").textContent="";
@@ -798,9 +823,9 @@ $("btnCsv").addEventListener("click",()=>{
 });
 function exportDre(){
   const S=STATS; download("suco-verde-dre_"+fileTag()+".csv",[["Suco Verde – "+label()],[],["Linha","Valor (R$)","% do faturamento"],
-    ["Faturamento bruto",S.fat,"100%"],["(-) Impostos",-S.imp,pct(S.fat?S.imp/S.fat:NaN)],["(-) Taxas de cartão e Pix",-S.taxas,pct(S.fat?S.taxas/S.fat:NaN)],["= Receita líquida",S.rl,pct(S.fat?S.rl/S.fat:NaN)],
+    ["Faturamento bruto",S.fat,"100%"],["  Pedidos pelo site",S.site,""],["  Vendido na banca",S.bancaTot,""],["(-) Impostos",-S.imp,pct(S.fat?S.imp/S.fat:NaN)],["(-) Taxas de cartão e Pix",-S.taxas,pct(S.fat?S.taxas/S.fat:NaN)],["= Receita líquida",S.rl,pct(S.fat?S.rl/S.fat:NaN)],
     ["(-) CMV",-S.cmv,pct(S.fat?S.cmv/S.fat:NaN)],["(-) CSV",-S.csv,pct(S.fat?S.csv/S.fat:NaN)],["= Lucro bruto",S.lb,pct(S.fat?S.lb/S.fat:NaN)],
-    ["(-) Custos fixos",-S.cf,pct(S.fat?S.cf/S.fat:NaN)],["= Lucro líquido",S.ll,pct(S.fat?S.ll/S.fat:NaN)],[],["Pedidos",S.n],["Ticket médio",S.ticket],["Ponto de equilíbrio mensal",isFinite(S.pe)?S.pe:""]]);
+    ["(-) Pagamentos à equipe (caixa)",-S.equipe,pct(S.fat?S.equipe/S.fat:NaN)],["(-) Custos fixos",-S.cf,pct(S.fat?S.cf/S.fat:NaN)],["= Lucro líquido",S.ll,pct(S.fat?S.ll/S.fat:NaN)],[],["Pedidos",S.n],["Ticket médio",S.ticket],["Ponto de equilíbrio mensal",isFinite(S.pe)?S.pe:""]]);
 }
 
 /* ---------- fluxo ---------- */
@@ -811,7 +836,7 @@ function recompute(){
   if($("goCfg")) $("goCfg").onclick=()=>setTab("config");
   renderResumo(STATS); renderMelhores(STATS); renderProdutos(STATS); renderCompras(STATS); renderCaixa();
   if(period==="ano"){
-    const m=Array(12).fill(0);STATS.ok.forEach(o=>{m[+o.dia.slice(5,7)-1]+=+o.total||0});
+    const m=Array(12).fill(0);Object.entries(STATS.byDay).forEach(([d,v])=>{m[+d.slice(5,7)-1]+=v});
     $("yearTitle").textContent="Faturamento anual de "+anchor.slice(0,4)+": "+brl(STATS.fat);
     chart("cYear",barCfg(MES3,m.map(r2),{color:COLORS[0]}));
   }
