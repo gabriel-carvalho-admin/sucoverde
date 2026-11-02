@@ -207,6 +207,11 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
 
 .tile b.small{font-size:1.15rem}
 .pe-top{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.legend.inline{display:flex;flex-wrap:wrap;gap:6px 16px;margin:0 0 8px}
+.legend.inline li{display:flex;gap:6px;align-items:center}
+.tbl tr.miss td{color:var(--muted);background:#fbf6ec}
+.tbl tr.totrow td{font-weight:800;border-top:2px solid var(--line)}
+.note a{color:var(--leaf);font-weight:800}
 </style>
 </head>
 <body>
@@ -228,7 +233,7 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
 <div id="appView" hidden>
 <div class="wrap">
 <header class="fhead">
-  <h1>Financeiro Suco Verde<small><a href="../painel/">← Painel de pedidos</a> · <a href="../compras/">Lançar compra</a></small></h1>
+  <h1>Financeiro Suco Verde<small><a href="../painel/">← Painel de pedidos</a> · <a href="../compras/">Lançar compra</a> · <a href="../caixa/">Fechar caixa</a></small></h1>
   <div class="hbtns">
     <button type="button" class="btn" id="btnCsv">Exportar CSV</button>
     <button type="button" class="btn" id="logout">Sair</button>
@@ -254,6 +259,7 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
   <button type="button" role="tab" data-t="resumo" aria-selected="true">Resumo</button>
   <button type="button" role="tab" data-t="melhores" aria-selected="false">Melhores pedidos</button>
   <button type="button" role="tab" data-t="produtos" aria-selected="false">Produtos</button>
+  <button type="button" role="tab" data-t="caixa" aria-selected="false">Caixa</button>
   <button type="button" role="tab" data-t="compras" aria-selected="false">Compras</button>
   <button type="button" role="tab" data-t="config" aria-selected="false">Custos e taxas</button>
 </nav>
@@ -327,6 +333,30 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
     <div class="box chartbox"><h3>Participação no lucro bruto</h3><div class="pie-row"><div class="cwrap pie"><canvas id="cPieLuc" role="img" aria-label="Pizza de participação no lucro"></canvas></div><ul class="legend" id="lPieLuc"></ul></div></div>
   </div>
   <div class="box"><h3>Todos os produtos e serviços</h3><div class="tscroll"><table class="tbl" id="prodTable"></table></div></div>
+</section>
+
+<!-- CAIXA -->
+<section id="t-caixa" hidden>
+  <div class="tiles">
+    <div class="tile"><span>Venda bruta (caixa)</span><b id="kVB">—</b><em id="kVBn"></em></div>
+    <div class="tile"><span>Pedidos pelo site</span><b id="kSite">—</b><em id="kSitePct"></em></div>
+    <div class="tile"><span>Vendido na banca</span><b id="kBanca">—</b><em id="kBancaPct"></em></div>
+    <div class="tile"><span>Pagamentos à equipe</span><b id="kEquipe">—</b><em id="kEquipeDet"></em></div>
+  </div>
+  <p class="note warnc" id="cxMissing" hidden></p>
+  <div class="box chartbox">
+    <h3 id="cxChartTitle">Venda bruta por dia: site × banca</h3>
+    <ul class="legend inline"><li><i style="background:#2a78d6"></i><span>Pedidos pelo site</span></li><li><i style="background:#eb6834"></i><span>Vendido na banca (diferença)</span></li></ul>
+    <div class="cwrap tall"><canvas id="cCx" role="img" aria-label="Venda bruta por dia dividida entre site e banca"></canvas></div>
+  </div>
+  <div class="grid2">
+    <div class="box chartbox"><h3>Site × banca</h3><div class="pie-row"><div class="cwrap pie"><canvas id="cCxPie" role="img" aria-label="Pizza site e banca"></canvas></div><ul class="legend" id="lCxPie"></ul></div></div>
+    <div class="box chartbox"><h3>Como o dinheiro entrou</h3><div class="pie-row"><div class="cwrap pie"><canvas id="cCxForma" role="img" aria-label="Pizza das formas de recebimento"></canvas></div><ul class="legend" id="lCxForma"></ul></div></div>
+  </div>
+  <div class="box"><div class="pe-top"><h3>Conferência dia a dia</h3><button type="button" class="btn" id="cxCsv">Baixar caixa em CSV</button></div>
+    <div class="tscroll"><table class="tbl" id="cxTable"></table></div>
+    <p class="sub">Vendido na banca = venda bruta do caixa − pedidos feitos pelo site no mesmo dia (pedidos cancelados não contam). "Em dinheiro" soma o que ficou na gaveta com o que saiu dela para compras e pagamentos.</p>
+  </div>
 </section>
 
 <!-- COMPRAS -->
@@ -436,6 +466,7 @@ function backend(){
         const s=await F.getDocs(F.query(F.collection(db,"pedidos"),F.where("dia",">=",a),F.where("dia","<=",b)));
         return s.docs.map(d=>{const o=Object.assign({id:d.id},d.data({serverTimestamps:"estimate"}));o.criado=o.criado&&o.criado.toMillis?o.criado.toMillis():(+o.criado||0);return o});
       },
+      async caixa(a,b){const s=await F.getDocs(F.query(F.collection(db,"caixa"),F.where("dia",">=",a),F.where("dia","<=",b)));return s.docs.map(d=>d.data())},
       async compras(a,b){const s=await F.getDocs(F.query(F.collection(db,"compras"),F.where("dia",">=",a),F.where("dia","<=",b)));return s.docs.map(d=>Object.assign({id:d.id},d.data({serverTimestamps:"estimate"})))},
       async getDoc(path){const s=await F.getDoc(F.doc(db,...path.split("/")));return s.exists()?s.data():null},
       setDoc(path,d){return F.setDoc(F.doc(db,...path.split("/")),d)}
@@ -472,7 +503,7 @@ async function loadOrders(a,b){
 
 /* ---------- estado ---------- */
 let period="mes", anchor=tzDate(new Date()), tab="resumo";
-let MENU=DEFAULT_MENU, CFG=null, ORDERS=[], STATS=null, YEARMONTHS=null, COMPRAS=[];
+let MENU=DEFAULT_MENU, CFG=null, ORDERS=[], STATS=null, YEARMONTHS=null, COMPRAS=[], CAIXA=[];
 const DEFAULT_CFG={custos:{},fixos:[{nome:"Aluguel",valor:0},{nome:"Energia",valor:0},{nome:"Água",valor:0},{nome:"Gás",valor:0},{nome:"Salários e encargos",valor:0},{nome:"Internet e telefone",valor:0},{nome:"Contador",valor:0}],taxas:{debito:0,credito:0,pix:0},imposto:0};
 function note(t){$("note").textContent=t||"";$("note").hidden=!t}
 
@@ -537,11 +568,11 @@ function barCfg(labels,data,{horizontal=false,color=BRAND,money=true}={}){
       scales:{[horizontal?"y":"x"]:{grid:{display:false},ticks:{color:"#52514e",font:tickFont,autoSkip:!horizontal}},
               [horizontal?"x":"y"]:{beginAtZero:true,grid:{color:"rgba(107,58,30,.08)"},border:{display:false},ticks:{color:"#7a6a58",font:tickFont,maxRotation:0,maxTicksLimit:horizontal?5:8,callback:v=>money?brl0(v):v}}}}};
 }
-function pie(id,legendId,map,{max=7}={}){
+function pie(id,legendId,map,{max=7,colorMap=null}={}){
   let e=Object.entries(map).filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]);
   if(e.length>max+1){const rest=e.slice(max).reduce((a,x)=>a+x[1],0);e=e.slice(0,max).concat([["Outros",rest]])}
   const tot=e.reduce((a,x)=>a+x[1],0);
-  const col=e.map((x,i)=>x[0]==="Outros"?OTHER:COLORS[i%COLORS.length]);
+  const col=e.map((x,i)=>colorMap&&colorMap[x[0]]?colorMap[x[0]]:x[0]==="Outros"?OTHER:COLORS[i%COLORS.length]);
   chart(id,{type:"pie",data:{labels:e.map(x=>x[0]),datasets:[{data:e.map(x=>x[1]),backgroundColor:col,borderColor:CARD,borderWidth:2,hoverOffset:6}]},
     options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.label+": "+brl(c.parsed)+" ("+pct(c.parsed/tot)+")"}}}}});
   $(legendId).innerHTML=e.length?e.map((x,i)=>`<li><i style="background:${col[i]}"></i><span>${esc(x[0])}</span><b>${pct(x[1]/tot)}</b><small>${brl(x[1])}</small></li>`).join(""):`<li class="empty">Sem vendas no período.</li>`;
@@ -628,6 +659,51 @@ function renderProdutos(S){
   $("prodTable").innerHTML=all.length?`<thead><tr><th>Produto ou serviço</th><th>Tipo</th><th class="num">Qtd.</th><th class="num">Faturamento</th><th class="num">Custo unit.</th><th class="num">CMV/CSV</th><th class="num">Lucro bruto</th><th class="num">Margem</th></tr></thead><tbody>`+
     all.map(p=>`<tr><td>${esc(p.n)}${!CFG.custos[p.n]?' <span class="flag">sem custo</span>':""}</td><td>${p.tipo==="servico"?"Serviço":"Produto"}</td><td class="num">${p.q}</td><td class="num">${brl(p.fat)}</td><td class="num">${brl(p.unit)}</td><td class="num">${brl(p.custo)}</td><td class="num ${p.lucro<0?"neg":""}">${brl(p.lucro)}</td><td class="num">${pct(p.margem)}</td></tr>`).join("")+"</tbody>":`<tbody><tr><td class="empty">Sem vendas no período.</td></tr></tbody>`;
 }
+
+/* ---------- caixa ---------- */
+function cxRows(){
+  const [a,b]=range(), today=tzDate(new Date()), end=b>today?today:b;
+  const site={}; ORDERS.forEach(o=>{if(o.origem==="site"&&o.status!=="cancelado")site[o.dia]=(site[o.dia]||0)+(+o.total||0)});
+  const cx={}; CAIXA.forEach(c=>cx[c.dia]=c);
+  const days=a>end?[]:daysBetween(a,end).filter(d=>dow(d)!==0||cx[d]||site[d]);
+  return days.map(d=>{const c=cx[d],s=site[d]||0;const pg=c&&c.pagamentos?Object.values(c.pagamentos).reduce((x,y)=>x+(+y||0),0):0;
+    return {d,c,site:s,vb:c?+c.vendaBruta||0:null,banca:c?(+c.vendaBruta||0)-s:null,din:c?(+c.dinheiro||0):0,pix:c?(+c.pix||0):0,cart:c?(+c.cartao||0):0,comp:c?(+c.compras||0):0,pg,pgs:c&&c.pagamentos||{}}});
+}
+function renderCaixa(){
+  const rows=cxRows(), closed=rows.filter(r=>r.c);
+  const vb=closed.reduce((a,r)=>a+r.vb,0), site=closed.reduce((a,r)=>a+r.site,0), banca=vb-site;
+  const pg={}; closed.forEach(r=>Object.entries(r.pgs).forEach(([k,v])=>pg[k]=(pg[k]||0)+(+v||0)));
+  const pgT=Object.values(pg).reduce((a,x)=>a+x,0);
+  $("kVB").textContent=brl(vb); $("kVBn").textContent=closed.length+(closed.length===1?" dia fechado":" dias fechados");
+  $("kSite").textContent=brl(site); $("kSitePct").textContent=vb?pct(site/vb)+" da venda bruta":"";
+  $("kBanca").textContent=brl(banca); $("kBanca").classList.toggle("neg",banca<0); $("kBancaPct").textContent=vb?pct(banca/vb)+" da venda bruta":"";
+  $("kEquipe").textContent=brl(pgT); $("kEquipeDet").textContent=Object.entries(pg).filter(x=>x[1]>0).map(([k,v])=>k+" "+brl(v)).join(" · ");
+  const miss=rows.filter(r=>!r.c&&r.d<tzDate(new Date()));
+  $("cxMissing").hidden=!miss.length;
+  $("cxMissing").innerHTML=miss.length?`${miss.length===1?"1 dia":miss.length+" dias"} sem fechamento de caixa: ${miss.slice(0,6).map(r=>br(r.d)).join(", ")}${miss.length>6?"…":""}. <a href="../caixa/">Fechar caixa</a>`:"";
+  // gráfico empilhado (por dia, ou por mês no ano)
+  let labels=[],sSite=[],sBanca=[];
+  if(period==="ano"){const ms=Array.from({length:12},()=>({s:0,b:0}));closed.forEach(r=>{const m=+r.d.slice(5,7)-1;ms[m].s+=r.site;ms[m].b+=Math.max(0,r.banca)});labels=MES3;sSite=ms.map(x=>r2(x.s));sBanca=ms.map(x=>r2(x.b));$("cxChartTitle").textContent="Venda bruta por mês: site × banca";}
+  else{labels=rows.map(r=>period==="semana"?WD[dow(r.d)]+" "+br(r.d):r.d.slice(8));sSite=rows.map(r=>r.c?r2(r.site):0);sBanca=rows.map(r=>r.c?r2(Math.max(0,r.banca)):0);$("cxChartTitle").textContent="Venda bruta por dia: site × banca";}
+  chart("cCx",{type:"bar",data:{labels,datasets:[{label:"Pedidos pelo site",data:sSite,backgroundColor:COLORS[0],borderColor:CARD,borderWidth:{top:2},borderRadius:0,maxBarThickness:36},{label:"Vendido na banca",data:sBanca,backgroundColor:COLORS[1],borderColor:CARD,borderWidth:{top:2},borderRadius:{topLeft:4,topRight:4},maxBarThickness:36}]},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false},tooltip:{mode:"index",callbacks:{label:c=>c.dataset.label+": "+brl(c.parsed.y),footer:it=>"Venda bruta: "+brl(it.reduce((a,x)=>a+x.parsed.y,0))}}},
+      scales:{x:{stacked:true,grid:{display:false},ticks:{color:"#52514e",font:tickFont}},y:{stacked:true,beginAtZero:true,grid:{color:"rgba(107,58,30,.08)"},border:{display:false},ticks:{color:"#7a6a58",font:tickFont,maxTicksLimit:8,callback:v=>brl0(v)}}}}});
+  pie("cCxPie","lCxPie",{"Pedidos pelo site":site,"Vendido na banca":Math.max(0,banca)},{colorMap:{"Pedidos pelo site":COLORS[0],"Vendido na banca":COLORS[1]}});
+  const din=closed.reduce((a,r)=>a+r.din+r.comp+r.pg,0), pix=closed.reduce((a,r)=>a+r.pix,0), cart=closed.reduce((a,r)=>a+r.cart,0);
+  pie("cCxForma","lCxForma",{"Em dinheiro":din,"Pix":pix,"Máquina de cartão":cart});
+  const names=[...new Set(closed.flatMap(r=>Object.keys(r.pgs)))];
+  $("cxTable").innerHTML=rows.length?`<thead><tr><th>Dia</th><th class="num">Venda bruta</th><th class="num">Pedidos site</th><th class="num">Banca (dif.)</th><th class="num">Dinheiro</th><th class="num">Pix</th><th class="num">Cartão</th><th class="num">Compras</th>${names.map(n=>`<th class="num">${esc(n)}</th>`).join("")}</tr></thead><tbody>`+
+    rows.slice().reverse().map(r=>r.c?`<tr><td>${WD[dow(r.d)]} ${br(r.d)}</td><td class="num"><b>${brl(r.vb)}</b></td><td class="num">${brl(r.site)}</td><td class="num ${r.banca<0?"neg":""}"><b>${brl(r.banca)}</b></td><td class="num">${brl(r.din)}</td><td class="num">${brl(r.pix)}</td><td class="num">${brl(r.cart)}</td><td class="num">${brl(r.comp)}</td>${names.map(n=>`<td class="num">${brl(r.pgs[n]||0)}</td>`).join("")}</tr>`
+      :`<tr class="miss"><td>${WD[dow(r.d)]} ${br(r.d)}</td><td colspan="${7+names.length}"><span class="flag">sem fechamento</span>${r.site?" · pedidos do site: "+brl(r.site):""}</td></tr>`).join("")+
+    (closed.length>1?`<tr class="totrow"><td>Total</td><td class="num">${brl(vb)}</td><td class="num">${brl(site)}</td><td class="num">${brl(banca)}</td><td class="num">${brl(closed.reduce((a,r)=>a+r.din,0))}</td><td class="num">${brl(pix)}</td><td class="num">${brl(cart)}</td><td class="num">${brl(closed.reduce((a,r)=>a+r.comp,0))}</td>${names.map(n=>`<td class="num">${brl(pg[n]||0)}</td>`).join("")}</tr>`:"")+"</tbody>"
+    :`<tbody><tr><td class="empty">Nenhum dia neste período.</td></tr></tbody>`;
+}
+$("cxCsv").addEventListener("click",()=>{
+  const rows=cxRows(), names=[...new Set(rows.flatMap(r=>Object.keys(r.pgs)))];
+  const out=[["Data","Venda bruta (R$)","Pedidos pelo site (R$)","Vendido na banca (R$)","Dinheiro líquido (R$)","Pix (R$)","Máquina de cartão (R$)","Compras do dia (R$)",...names.map(n=>"Pagamento "+n+" (R$)"),"Observação"]];
+  rows.forEach(r=>{if(r.c)out.push([brY(r.d),r.vb,r.site,r.banca,r.din,r.pix,r.cart,r.comp,...names.map(n=>+r.pgs[n]||0),r.c.obs||""]);else out.push([brY(r.d),"sem fechamento",r.site])});
+  download("suco-verde-caixa_"+fileTag()+".csv",out);
+});
 
 /* ---------- compras ---------- */
 function baseQty(i){const q=+i.qtd||0,c=+i.conteudo||0,u=i.unidade||"";if(!c)return {v:q,u:"un"};if(u==="g")return {v:q*c/1000,u:"kg"};if(u==="ml")return {v:q*c/1000,u:"L"};return {v:q*c,u:u||"un"}}
@@ -733,7 +809,7 @@ function recompute(){
   $("costWarn").hidden=!STATS.noCost;
   $("costWarn").innerHTML=STATS.noCost?`${STATS.noCost} ${STATS.noCost===1?"item vendido está":"itens vendidos estão"} sem custo cadastrado, então o CMV e os lucros aparecem maiores do que são. <button type="button" class="linkbtn" id="goCfg">Cadastrar custos</button>`:"";
   if($("goCfg")) $("goCfg").onclick=()=>setTab("config");
-  renderResumo(STATS); renderMelhores(STATS); renderProdutos(STATS); renderCompras(STATS);
+  renderResumo(STATS); renderMelhores(STATS); renderProdutos(STATS); renderCompras(STATS); renderCaixa();
   if(period==="ano"){
     const m=Array(12).fill(0);STATS.ok.forEach(o=>{m[+o.dia.slice(5,7)-1]+=+o.total||0});
     $("yearTitle").textContent="Faturamento anual de "+anchor.slice(0,4)+": "+brl(STATS.fat);
@@ -746,10 +822,10 @@ async function load(){
   const seq=++loadSeq; $("perLabel").textContent=label();
   document.querySelectorAll("#periodBtns button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.p===period));
   note("Carregando vendas...");
-  try{const [a,b]=range();const [o,c]=await Promise.all([loadOrders(a,b),be.compras(a,b).catch(()=>[])]); if(seq!==loadSeq)return; ORDERS=o; COMPRAS=c.sort((x,y)=>(y.dia||"").localeCompare(x.dia||"")); note(""); recompute();}
+  try{const [a,b]=range();const [o,c,x]=await Promise.all([loadOrders(a,b),be.compras(a,b).catch(()=>[]),be.caixa?be.caixa(a,b).catch(()=>[]):Promise.resolve([])]); if(seq!==loadSeq)return; ORDERS=o; CAIXA=x; COMPRAS=c.sort((x,y)=>(y.dia||"").localeCompare(x.dia||"")); note(""); recompute();}
   catch(err){if(seq!==loadSeq)return; note(err&&err.code==="permission-denied"?"Sua conta não tem acesso às vendas.":"Não consegui carregar as vendas. Confira a internet e tente de novo.")}
 }
-function setTab(t){tab=t;document.querySelectorAll(".tabs button").forEach(b=>b.setAttribute("aria-selected",b.dataset.t===t));["resumo","melhores","produtos","compras","config"].forEach(x=>$("t-"+x).hidden=x!==t);if(t==="config"){fixedDraft=[];renderConfig()} Object.values(charts).forEach(c=>c.resize())}
+function setTab(t){tab=t;document.querySelectorAll(".tabs button").forEach(b=>b.setAttribute("aria-selected",b.dataset.t===t));["resumo","melhores","produtos","caixa","compras","config"].forEach(x=>$("t-"+x).hidden=x!==t);if(t==="config"){fixedDraft=[];renderConfig()} Object.values(charts).forEach(c=>c.resize())}
 document.querySelector(".tabs").addEventListener("click",e=>{const b=e.target.closest("button[data-t]");if(b)setTab(b.dataset.t)});
 $("periodBtns").addEventListener("click",e=>{const b=e.target.closest("button[data-p]");if(!b)return;period=b.dataset.p;load()});
 $("prevP").onclick=()=>{shift(-1);load()}; $("nextP").onclick=()=>{shift(1);load()};
