@@ -151,6 +151,26 @@ textarea{min-height:64px;resize:vertical}
 .primary:disabled{background:#9aa58f;cursor:not-allowed}
 .done-text{font-size:1.05rem;margin:12px 0 4px}
 .done-total{font-weight:800;color:var(--bark);font-variant-numeric:tabular-nums}
+
+.field-hint{color:var(--muted);font-size:.82rem;margin:4px 0 0}
+.done-code{font-family:var(--display);font-size:1.6rem;color:var(--leaf);margin:6px 0 0}
+/* Acompanhar pedido */
+.track{display:grid;gap:10px;margin-top:12px}
+.tcard{background:#fff;border:2px solid var(--leaf);border-radius:16px;padding:12px 14px;box-shadow:0 4px 14px rgba(31,107,42,.12)}
+.tcard.cancelado{border-color:var(--danger)}
+.thead{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.thead b{font-family:var(--display);font-size:1.15rem;color:var(--bark)}
+.thead span{color:var(--muted);font-size:.85rem;font-weight:700}
+.tstate{font-weight:800;color:var(--leaf);font-size:1.05rem;margin:4px 0 8px}
+.tcard.cancelado .tstate{color:var(--danger)}
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;list-style:none;margin:0;padding:0}
+.steps li{font-size:.72rem;font-weight:800;color:var(--muted);text-align:center;line-height:1.2}
+.steps li::before{content:"";display:block;height:6px;border-radius:4px;background:var(--line);margin-bottom:5px}
+.steps li.on{color:var(--leaf)}
+.steps li.on::before{background:var(--lime)}
+.steps li.now::before{background:var(--leaf)}
+.tfoot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:10px;font-size:.88rem}
+.tfoot button{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:6px 10px;font-weight:800;color:var(--bark)}
 </style>
 </head>
 <body>
@@ -169,6 +189,8 @@ textarea{min-height:64px;resize:vertical}
     <li>Pix, dinheiro, débito e crédito</li>
   </ul>
 </header>
+
+<section class="wrap track" id="track" hidden aria-live="polite"></section>
 
 <nav class="cats" aria-label="Categorias"><div class="wrap" id="catNav"></div></nav>
 
@@ -218,6 +240,11 @@ textarea{min-height:64px;resize:vertical}
     <input type="text" id="cName" autocomplete="name" placeholder="Como devemos te chamar?">
     <p class="err" id="eName"></p>
 
+    <label class="lbl" for="cPhone">Seu WhatsApp</label>
+    <input type="tel" id="cPhone" autocomplete="tel" inputmode="tel" placeholder="(86) 9 9999-9999">
+    <p class="field-hint">Para avisarmos quando o pedido estiver pronto.</p>
+    <p class="err" id="ePhone"></p>
+
     <fieldset>
       <legend>Como quer receber?</legend>
       <div class="seg">
@@ -264,6 +291,7 @@ textarea{min-height:64px;resize:vertical}
   <div class="sheet done" role="dialog" aria-modal="true" aria-labelledby="doneTitle">
     <div class="sheet-head"><div><h3 id="doneTitle">Pedido enviado!</h3></div><button type="button" class="x" data-close aria-label="Fechar">×</button></div>
     <p id="doneText" class="done-text"></p>
+    <p id="doneCode" class="done-code" hidden></p>
     <p id="doneTotal" class="done-total"></p>
     <div class="row-end"><a class="primary wa" id="doneWa" href="https://wa.me/5586999993958" target="_blank" rel="noopener" style="justify-content:center">Falar com a gente no WhatsApp</a></div>
     <div class="row-end" style="margin-top:8px"><button type="button" class="primary" data-close style="justify-content:center;background:var(--card);color:var(--leaf);border:2px solid var(--leaf)">Voltar ao cardápio</button></div>
@@ -460,6 +488,7 @@ $("openCart").onclick=()=>{renderCart();show("cartVeil")};
 const cust=store.get("cust",{});
 if(cust.name) $("cName").value=cust.name;
 if(cust.place) $("cPlace").value=cust.place;
+if(cust.phone) $("cPhone").value=cust.phone;
 if(cust.mode){const r=document.querySelector(`input[name=mode][value="${cust.mode}"]`); if(r) r.checked=true;}
 
 const mode=()=>document.querySelector("input[name=mode]:checked").value;
@@ -468,7 +497,7 @@ function syncForm(){
   $("placeBox").hidden = mode()!=="entrega";
   $("freeNote").textContent = mode()==="entrega" ? "Entrega grátis na Ceasa" : "Retirada no balcão";
   $("changeBox").hidden = pay()!=="Dinheiro";
-  ["eName","ePlace","ePay","eChange"].forEach(id=>{$(id).textContent=""});
+  ["eName","ePhone","ePlace","ePay","eChange"].forEach(id=>{$(id).textContent=""});
   updateSend();
 }
 $("cartForm").addEventListener("change",syncForm);
@@ -479,7 +508,7 @@ function parseMoney(s){s=s.replace(/[^\d,\.]/g,"").replace(/\.(?=\d{3}(\D|$))/g,
 
 function buildMessage(){
   const name=$("cName").value.trim(), m=mode(), p=pay();
-  const L=["*Pedido – Suco Verde*","","*Cliente:* "+name,""];
+  const L=["*Pedido – Suco Verde*","","*Cliente:* "+name]; if(phoneDigits()) L.push("*WhatsApp:* "+fmtPhone(phoneDigits())); L.push("");
   cart.forEach(l=>{
     L.push(`${l.q}x ${l.n} – ${brl(l.u*l.q)}`);
     if(l.det) L.push("   • "+l.det);
@@ -509,6 +538,7 @@ function orderDoc(){
   const p=pay(), d={origem:"site",status:"novo",dia:tzDate(new Date()),cliente:$("cName").value.trim().slice(0,80),
     modo:mode(),pagamento:p,total:r2(total()),
     itens:cart.map(l=>({q:l.q,n:l.n,v:r2(l.u*l.q),det:l.det?[l.det]:[],ex:l.ex||[],obs:l.obs||""}))};
+  if(phoneDigits()) d.telefone=phoneDigits();
   if(mode()==="entrega") d.local=$("cPlace").value.trim().slice(0,200);
   const obs=$("cObs").value.trim(); if(obs) d.obs=obs.slice(0,500);
   if(p==="Dinheiro"){const t=parseMoney($("cChange").value); if(!isNaN(t)) d.troco=brl(t);}
@@ -521,6 +551,9 @@ $("sendOrder").addEventListener("click",async()=>{
   let ok=true;
   const name=$("cName").value.trim();
   if(!name){$("eName").textContent="Informe seu nome.";ok=false}
+  const ph=phoneDigits();
+  if(!ph){$("ePhone").textContent="Informe seu WhatsApp com DDD, para avisarmos quando ficar pronto.";ok=false}
+  else if(ph.length<10||ph.length>11){$("ePhone").textContent="Confira o número: use DDD + número, como (86) 9 9999-9999.";ok=false}
   if(mode()==="entrega" && !$("cPlace").value.trim()){$("ePlace").textContent="Diga onde entregar: pavilhão, box ou nome da banca.";ok=false}
   if(!pay()){$("ePay").textContent="Escolha a forma de pagamento.";ok=false}
   if(pay()==="Dinheiro"){
@@ -528,13 +561,13 @@ $("sendOrder").addEventListener("click",async()=>{
     if(raw && (isNaN(t)||t<total())){$("eChange").textContent="O valor do troco precisa ser maior que o total ("+brl(total())+").";ok=false}
   }
   if(!ok){const f=document.querySelector("#cartForm .err:not(:empty)");if(f)f.scrollIntoView({block:"center",behavior:"smooth"});return}
-  store.set("cust",{name,place:$("cPlace").value.trim(),mode:mode()});
+  store.set("cust",{name,phone:$("cPhone").value.trim(),place:$("cPlace").value.trim(),mode:mode()});
   const msg=buildMessage(), doc=orderDoc(), btn=$("sendOrder");
   sending=true; btn.disabled=true; btn.textContent="Enviando pedido...";
-  let sent=false;
+  let sent=false, newId=null;
   try{
     const be=await backend();
-    await Promise.race([be.createOrder(doc), new Promise((_,rej)=>setTimeout(()=>rej(new Error("tempo")),15000))]);
+    newId=await Promise.race([be.createOrder(doc), new Promise((_,rej)=>setTimeout(()=>rej(new Error("tempo")),15000))]);
     sent=true;
   }catch(err){ console.warn("pedido não salvo", err); }
   sending=false; btn.textContent="Enviar pedido";
@@ -544,10 +577,15 @@ $("sendOrder").addEventListener("click",async()=>{
     $("doneTitle").textContent="Pedido enviado!";
     $("doneText").textContent = doc.modo==="entrega" ? "A Suco Verde já recebeu seu pedido e vai levar até você na Ceasa." : "A Suco Verde já recebeu seu pedido. É só retirar no balcão.";
     $("doneTotal").textContent="Total: "+brl(doc.total)+" · "+doc.pagamento;
+    const code=codeOf(newId);
+    $("doneCode").hidden=false; $("doneCode").textContent="Pedido #"+code;
+    $("doneText").textContent += " Você acompanha o andamento no topo desta página.";
     $("doneWa").textContent="Falar com a gente no WhatsApp";
-    $("doneWa").href="https://wa.me/"+WA+"?text="+encodeURIComponent("Olá! Acabei de fazer um pedido pelo site em nome de "+doc.cliente+".");
+    $("doneWa").href="https://wa.me/"+WA+"?text="+encodeURIComponent("Olá! Acabei de fazer o pedido #"+code+" pelo site, em nome de "+doc.cliente+".");
+    addTrack(newId);
   } else {
     hide("cartVeil");
+    $("doneCode").hidden=true;
     $("doneTitle").textContent="Falta só um passo";
     $("doneText").textContent="Não conseguimos registrar seu pedido pelo site agora. Toque no botão abaixo para enviar o mesmo pedido pelo WhatsApp.";
     $("doneTotal").textContent="Total: "+brl(doc.total);
@@ -557,6 +595,55 @@ $("sendOrder").addEventListener("click",async()=>{
   }
   updateSend(); show("doneVeil");
 });
+
+/* ---------- WhatsApp do cliente ---------- */
+function phoneDigits(){let d=$("cPhone").value.replace(/\D/g,""); if(d.length>11&&d.startsWith("55")) d=d.slice(2); return d.slice(0,11)}
+function fmtPhone(d){return d.length===11?"("+d.slice(0,2)+") "+d.slice(2,3)+" "+d.slice(3,7)+"-"+d.slice(7):d.length===10?"("+d.slice(0,2)+") "+d.slice(2,6)+"-"+d.slice(6):d}
+const codeOf=id=>String(id||"").slice(0,4).toUpperCase();
+
+/* ---------- acompanhar pedido ---------- */
+const TRACK_KEY="track";
+let tracks=store.get(TRACK_KEY,[]); if(!Array.isArray(tracks)) tracks=[];
+const watchers={}, tState={};
+const TXT={novo:"Recebido! Já vamos começar.",preparo:"Em preparo",pronto_entrega:"Saiu para entrega",pronto_retirada:"Pronto! Pode retirar no balcão",entregue:"Entregue. Bom apetite!",cancelado:"Pedido cancelado. Fale com a gente no WhatsApp."};
+function addTrack(id){
+  if(!id) return;
+  if(!tracks.some(t=>t.id===id)) tracks.unshift({id,ts:Date.now()});
+  tracks=tracks.slice(0,5); store.set(TRACK_KEY,tracks); watchTracks();
+}
+function dropTrack(id){
+  tracks=tracks.filter(t=>t.id!==id); store.set(TRACK_KEY,tracks);
+  if(watchers[id]){watchers[id]();delete watchers[id]} delete tState[id]; renderTrack();
+}
+function watchTracks(){
+  const dayAgo=Date.now()-20*3600e3;
+  tracks=tracks.filter(t=>t.ts>dayAgo); store.set(TRACK_KEY,tracks);
+  backend().then(be=>{
+    tracks.forEach(t=>{
+      if(watchers[t.id]) return;
+      watchers[t.id]=be.watchOrder(t.id,d=>{ if(!d){dropTrack(t.id);return} tState[t.id]=d; renderTrack(); },()=>{});
+    });
+  }).catch(()=>{});
+  renderTrack();
+}
+function renderTrack(){
+  const box=$("track"), list=tracks.filter(t=>tState[t.id]);
+  box.hidden=!list.length;
+  box.innerHTML=list.map(t=>{
+    const d=tState[t.id], st=d.status, ent=d.modo==="entrega";
+    const key=st==="pronto"?(ent?"pronto_entrega":"pronto_retirada"):st;
+    const steps=["Recebido","Em preparo",ent?"Saiu para entrega":"Pronto",ent?"Entregue":"Retirado"];
+    const idx={novo:0,preparo:1,pronto:2,entregue:3}[st];
+    const done=st==="entregue"||st==="cancelado";
+    return `<article class="tcard ${esc(st)}">
+      <div class="thead"><b>Seu pedido #${esc(codeOf(t.id))}</b><span>${brl(+d.total||0)}</span></div>
+      <div class="tstate">${esc(TXT[key]||st)}</div>
+      ${st!=="cancelado"?`<ol class="steps">${steps.map((s,i)=>`<li class="${i<=idx?"on":""}${i===idx?" now":""}">${s}</li>`).join("")}</ol>`:""}
+      <div class="tfoot"><span>${esc((d.itens||[]).map(i=>i.q+"× "+i.n).join(", "))}</span>${done?`<button type="button" data-untrack="${esc(t.id)}">Ok</button>`:""}</div>
+    </article>`;
+  }).join("");
+}
+$("track").addEventListener("click",e=>{const b=e.target.closest("[data-untrack]"); if(b) dropTrack(b.dataset.untrack)});
 
 /* ---------- Firebase ---------- */
 const FB_V="12.19.0";
@@ -571,6 +658,7 @@ function backend(){
     const db=F.getFirestore(A.initializeApp(FB_CFG));
     return {
       watchMenu(cb){return F.onSnapshot(F.doc(db,"config","cardapio"),s=>{if(s.exists())cb(s.data())},e=>console.warn(e))},
+      watchOrder(id,cb,err){return F.onSnapshot(F.doc(db,"pedidos",id),s=>cb(s.exists()?s.data():null),err)},
       async createOrder(d){const ref=F.doc(F.collection(db,"pedidos")); await F.setDoc(ref,Object.assign({},d,{criado:F.serverTimestamp()})); return ref.id;}
     };
   })();
@@ -584,10 +672,11 @@ function applyMenu(d){
   if(!$("cartVeil").hidden) renderCart();
 }
 backend().then(be=>be.watchMenu(applyMenu)).catch(e=>console.warn("cardápio ao vivo indisponível",e));
+(function(){const m=location.hash.match(/^#pedido-([A-Za-z0-9]{10,40})$/); if(m) addTrack(m[1]); else watchTracks();})();
 
 /* ---------- folhas ---------- */
 function show(id){lastFocus=document.activeElement;$(id).hidden=false;document.body.style.overflow="hidden";const f=$(id).querySelector("button,input,textarea");if(f)f.focus({preventScroll:true})}
-function hide(id){$(id).hidden=true;document.body.style.overflow="";if(lastFocus&&lastFocus.focus)lastFocus.focus({preventScroll:true})}
+function hide(id){$(id).hidden=true;document.body.style.overflow="";if(lastFocus&&lastFocus.focus)lastFocus.focus({preventScroll:true});if(id==="doneVeil"&&!$("track").hidden)window.scrollTo({top:0,behavior:"smooth"})}
 document.addEventListener("click",e=>{
   const v=e.target.classList&&e.target.classList.contains("veil")?e.target:null;
   if(v) return hide(v.id);

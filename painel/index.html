@@ -109,6 +109,13 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
 .bl-lines .q button{border:1px solid var(--line);background:#fff;border-radius:8px;width:30px;height:30px;font-weight:800;color:var(--leaf)}
 .tot{display:flex;justify-content:space-between;font-weight:800;font-size:1.1rem;margin-top:10px;font-variant-numeric:tabular-nums}
 
+.order .num .code{font-family:var(--body);font-size:.78rem;color:var(--muted);font-weight:800;margin-left:6px;letter-spacing:.04em}
+.order .tel{font-weight:700;color:var(--muted);font-size:.88rem}
+.order .btns2{display:flex;gap:6px;flex-wrap:wrap}
+.order .btns2 .btn{flex:1;text-align:center;text-decoration:none;font-size:.88rem}
+.btn.wa{background:#1fa855;border-color:#1fa855;color:#fff}
+@media (prefers-reduced-motion:no-preference){.btn.pulse{animation:pulse 1.2s ease-in-out infinite}@keyframes pulse{50%{box-shadow:0 0 0 6px rgba(31,168,85,.25)}}}
+
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 [hidden]{display:none !important}
 .login{max-width:380px;margin:12vh auto 0;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px 20px}
@@ -133,6 +140,21 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
 .ad-pr input{width:84px !important;padding:6px 8px !important;text-align:right;font-variant-numeric:tabular-nums}
 .ad-pr input.bad{border-color:var(--danger);background:#fdecea}
 .ad-foot{position:sticky;bottom:0;background:var(--paper);padding:10px 0 14px;margin-top:14px;border-top:1px solid var(--line)}
+
+#printArea{display:none}
+@media print{
+  @page{margin:3mm}
+  body{background:#fff}
+  body > *:not(#printArea){display:none !important}
+  #printArea{display:block !important;color:#000}
+  .tk{width:72mm;font:12px/1.35 "Courier New",monospace}
+  .tk hr{border:0;border-top:1px dashed #000;margin:6px 0}
+  .tk-c{text-align:center}
+  .tk-b{font-weight:700}
+  .tk-big{font-size:15px;font-weight:700;text-align:center;border:1px solid #000;padding:3px;margin:6px 0}
+  .tk-it{display:flex;justify-content:space-between;gap:8px}
+  .tk-sub{padding-left:14px;font-size:11px}
+}
 </style>
 </head>
 <body>
@@ -246,6 +268,8 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
   </div>
 </div>
 
+<div id="printArea" aria-hidden="true"></div>
+
 <script type="application/json" id="menuData">{"pausado": false, "recheios": ["Frango", "Carne de sol", "Queijo", "Presunto", "Ovo"], "sabores": [{"n": "Acerola"}, {"n": "Cajá"}, {"n": "Goiaba"}, {"n": "Laranja"}, {"n": "Maracujá"}], "cats": [{"id": "lanches", "nome": "Lanches", "foto": "cuscuz", "itens": [{"n": "Fatia de pizza", "p": 8, "o": ["extras"]}, {"n": "Salgados", "p": 6, "ph": "Qual salgado?"}, {"n": "Mini-salgados", "p": 1, "d": "Preço por unidade", "ph": "Quais sabores?"}, {"n": "Cuscuz simples", "p": 3, "o": ["extras"]}, {"n": "Cuscuz 2 itens", "p": 10, "d": "Escolha 2 recheios", "o": ["pick2", "extras"]}, {"n": "Cuscuz completo", "p": 12, "o": ["extras"]}, {"n": "Misto simples", "p": 7, "o": ["extras"]}, {"n": "Pão 2 itens", "p": 9, "d": "Escolha 2 recheios", "o": ["pick2", "extras"]}, {"n": "Pão completo", "p": 12, "o": ["extras"]}, {"n": "Beiju simples", "p": 3, "o": ["extras"]}, {"n": "Beiju 2 itens", "p": 10, "d": "Escolha 2 recheios", "o": ["pick2", "extras"]}, {"n": "Beiju completo", "p": 13, "o": ["extras"]}, {"n": "Crepioca", "p": 13, "o": ["extras"]}]}, {"id": "carne-de-sol", "nome": "Lanches com carne de sol", "foto": "lanche", "itens": [{"n": "Beiju cremoso", "p": 15, "d": "Carne de sol e requeijão", "o": ["extras"]}, {"n": "Beiju de sol", "p": 15, "d": "Carne de sol e queijo", "o": ["extras"]}, {"n": "Crepioca de sol", "p": 15, "d": "Carne de sol, queijo e ovo", "o": ["extras"]}, {"n": "Pão de sol", "p": 15, "d": "Carne de sol, queijo e presunto", "o": ["extras"]}]}, {"id": "complementos", "nome": "Complementos", "sub": "Também dá para incluir ao montar o lanche", "itens": [{"n": "Frango 40g", "p": 4}, {"n": "Carne de sol 40g", "p": 6}, {"n": "Queijo 40g", "p": 5}, {"n": "Presunto 40g", "p": 3}, {"n": "Ovo", "p": 2}]}, {"id": "sucos", "nome": "Sucos", "foto": "suco", "sub": "Acerola, cajá, goiaba, laranja ou maracujá", "itens": [{"n": "Suco 180 ml", "p": 4, "o": ["sabor"]}, {"n": "Suco 250 ml", "p": 5, "o": ["sabor"]}, {"n": "Suco 500 ml", "p": 11, "o": ["sabor"]}, {"n": "Mega suco 700 ml", "p": 13, "o": ["sabor"]}, {"n": "Suco detox 180 ml", "p": 5, "d": "Suco verde"}, {"n": "Matruz 150 ml", "p": 5, "d": "Suco verde"}]}, {"id": "bebidas", "nome": "Bebidas", "itens": [{"n": "Água mineral", "p": 4}, {"n": "Água mineral com gás", "p": 4}, {"n": "Leite 150 ml", "p": 4}, {"n": "Café 120 ml", "p": 2}, {"n": "Refrigerante 200 ml", "p": 5, "ph": "Qual refrigerante?"}, {"n": "Refrigerante lata", "p": 7, "ph": "Qual refrigerante?"}, {"n": "Refrigerante 1L", "p": 9, "ph": "Qual refrigerante?"}, {"n": "Refrigerante 2L", "p": 15, "ph": "Qual refrigerante?"}]}, {"id": "encomenda", "nome": "Cento de salgado", "foto": "salgado", "sub": "Sob encomenda", "itens": [{"n": "Cento de salgado", "p": 90, "d": "100 salgadinhos", "tag": "Encomenda", "ph": "Sabores e dia/horário que deseja receber"}]}]}</script>
 <script>(function(){
 "use strict";
@@ -258,7 +282,33 @@ const DEFAULT_MENU=JSON.parse($("menuData").textContent);
 let MENU=DEFAULT_MENU;
 
 const ST={novo:"Novo",preparo:"Em preparo",pronto:"Pronto",entregue:"Entregue",cancelado:"Cancelado"};
-const NEXT={novo:["preparo","Começar preparo"],preparo:["pronto","Marcar pronto"],pronto:["entregue","Entregue"]};
+const SITE_URL="https://gabriel-carvalho-admin.github.io/sucoverde/";
+const codeOf=id=>String(id||"").slice(0,4).toUpperCase();
+function nextFor(o){
+  if(o.status==="novo") return ["preparo","Começar preparo"];
+  if(o.status==="preparo") return ["pronto",o.modo==="entrega"?"Saiu para entrega":o.origem==="balcao"?"Marcar pronto":"Pronto para retirar"];
+  if(o.status==="pronto") return ["entregue",o.modo==="entrega"?"Entregue":"Retirado"];
+  return null;
+}
+function stLabel(o){
+  if(o.status==="pronto") return o.modo==="entrega"?"Saiu p/ entrega":"Pronto";
+  return ST[o.status]||o.status;
+}
+const fmtTel=d=>d&&d.length===11?"("+d.slice(0,2)+") "+d.slice(2,3)+" "+d.slice(3,7)+"-"+d.slice(7):d&&d.length===10?"("+d.slice(0,2)+") "+d.slice(2,6)+"-"+d.slice(6):(d||"");
+function waText(o){
+  const nm=(o.cliente||"").split(" ")[0], oi=nm?"Olá, "+nm+"! ":"Olá! ", c="#"+codeOf(o.id);
+  const link=o.origem==="site"?"\nAcompanhe aqui: "+SITE_URL+"#pedido-"+o.id:"";
+  switch(o.status){
+    case "novo": return oi+"Recebemos seu pedido "+c+" na Suco Verde. Já vamos preparar!"+link;
+    case "preparo": return oi+"Seu pedido "+c+" está sendo preparado."+link;
+    case "pronto": return o.modo==="entrega" ? oi+"Seu pedido "+c+" saiu para entrega aí na Ceasa!"+link : oi+"Seu pedido "+c+" está pronto! Pode retirar no balcão da Suco Verde.";
+    case "entregue": return "Obrigado pela preferência"+(nm?", "+nm:"")+"! Volte sempre à Suco Verde. 💚";
+    case "cancelado": return oi+"Seu pedido "+c+" foi cancelado. Qualquer dúvida, é só responder esta mensagem.";
+  }
+  return oi;
+}
+const waLink=o=>"https://wa.me/55"+o.telefone+"?text="+encodeURIComponent(waText(o));
+let justChanged=null;
 const ORIG={site:"Site",whatsapp:"WhatsApp",balcao:"Balcão"};
 const OPEN=["novo","preparo","pronto"];
 
@@ -302,6 +352,7 @@ function parseOrder(text){
     let m;
     if(/^pedido\s*[–-]\s*suco verde/i.test(L)){sawHeader=true;continue}
     if((m=L.match(/^cliente:\s*(.*)$/i))){o.cliente=m[1];continue}
+    if((m=L.match(/^whatsapp:\s*(.*)$/i))){let d=m[1].replace(/\D/g,"");if(d.length>11&&d.startsWith("55"))d=d.slice(2);o.telefone=d.slice(0,11);continue}
     if((m=L.match(/^(\d+)\s*x\s+(.+?)\s+[–—-]\s*R\$\s*([\d.,]+)\s*$/i))){last={q:+m[1],n:m[2],v:money(m[3]),det:[],ex:[],obs:""};o.itens.push(last);continue}
     if(last && !afterTotal){
       if((m=L.match(/^[•·]\s*(.+)$/))){last.det.push(m[1]);continue}
@@ -404,16 +455,20 @@ function render(){
 function card(o,n){
   const where=o.origem==="balcao"?"Venda no balcão":o.modo==="entrega"?"Entrega na Ceasa"+(o.local?": "+o.local:""):"Retirada no balcão";
   const items=(o.itens||[]).map(i=>`<li>${+i.q}× ${esc(i.n)}${(i.det&&i.det.length)||(i.ex&&i.ex.length)||i.obs?`<small>${[...(i.det||[]),...(i.ex||[]).map(x=>"+ "+x),i.obs?"Obs.: "+i.obs:""].filter(Boolean).map(esc).join(" · ")}</small>`:""}</li>`).join("");
-  const nx=NEXT[o.status], id=esc(o.id);
+  const nx=nextFor(o), id=esc(o.id);
   return `<article class="order st-${esc(o.status)}">
-    <div class="top"><span class="num">${n?"#"+n:"Prévia"}</span><span class="meta">${tzTime(o.criado)} · ${ORIG[o.origem]||""}</span><span class="pill">${ST[o.status]||esc(o.status)}</span></div>
-    ${o.cliente?`<div class="who">${esc(o.cliente)}</div>`:""}
+    <div class="top"><span class="num">${n?"#"+n:"Prévia"}${n?`<small class="code">${esc(codeOf(o.id))}</small>`:""}</span><span class="meta">${tzTime(o.criado)} · ${ORIG[o.origem]||""}</span><span class="pill">${esc(stLabel(o))}</span></div>
+    ${o.cliente||o.telefone?`<div class="who">${esc(o.cliente||"")}${o.telefone?` <span class="tel">${esc(fmtTel(o.telefone))}</span>`:""}</div>`:""}
     <div class="where">${esc(where)}</div>
     <ul>${items}</ul>
     ${o.obs?`<div class="obs">Obs.: ${esc(o.obs)}</div>`:""}
     ${o.aviso?`<div class="obs">${esc(o.aviso)}</div>`:""}
     <div class="foot"><span>${brl(o.total)}</span><small>${esc(o.pagamento||"Pagamento não informado")}${o.troco?" · troco p/ "+esc(o.troco):""}</small></div>
-    ${n?`<div class="btns">
+    ${n?`<div class="btns2">
+      <button type="button" class="btn" data-print="${id}">Imprimir comanda</button>
+      ${o.telefone?`<a class="btn wa${justChanged===o.id?" pulse":""}" href="${waLink(o)}" target="_blank" rel="noopener" data-wa="${id}">Avisar no WhatsApp</a>`:""}
+    </div>
+    <div class="btns">
       ${nx?`<button type="button" class="btn solid" data-id="${id}" data-to="${nx[0]}">${nx[1]}</button>`:""}
       ${o.status==="cancelado"||o.status==="entregue"?`<button type="button" class="btn" data-id="${id}" data-to="novo">Reabrir</button>`:""}
       ${o.status!=="cancelado"?(cancelAsk===o.id?`<button type="button" class="btn warn" data-id="${id}" data-to="cancelado">Confirmar cancelamento</button><button type="button" class="btn" data-keep="1">Não</button>`:`<button type="button" class="btn warn" data-ask="${id}">Cancelar</button>`):""}
@@ -422,12 +477,14 @@ function card(o,n){
 }
 $("chips").addEventListener("click",e=>{const b=e.target.closest(".chip");if(!b)return;filter=b.dataset.f;render()});
 $("orders").addEventListener("click",async e=>{
+  const w=e.target.closest("a[data-wa]"); if(w){justChanged=null;setTimeout(render,50);return}
   const b=e.target.closest("button"); if(!b) return;
+  if(b.dataset.print){const o=orders.find(x=>x.id===b.dataset.print); if(o) printTicket(o, orders.indexOf(o)+1); return}
   if(b.dataset.ask){cancelAsk=b.dataset.ask;render();return}
   if(b.dataset.keep){cancelAsk=null;render();return}
   if(b.dataset.to){
     cancelAsk=null; b.disabled=true;
-    try{await be.update(b.dataset.id,{status:b.dataset.to});}
+    try{await be.update(b.dataset.id,{status:b.dataset.to}); const o=orders.find(x=>x.id===b.dataset.id); justChanged=o&&o.telefone&&b.dataset.to!=="novo"?b.dataset.id:null; render();}
     catch(err){note(writeErr(err));b.disabled=false}
   }
 });
@@ -442,9 +499,33 @@ $("today").addEventListener("click",()=>{day=tzDate(new Date());$("day").value=d
 setInterval(()=>{const t=tzDate(new Date());if(filter==="aberto"&&day!==t&&$("day").value===day){day=t;$("day").value=t;subscribe()}},300000);
 function goToday(){if(day!==tzDate(new Date())){day=tzDate(new Date());$("day").value=day;subscribe()}}
 
+/* ---------- comanda ---------- */
+function printTicket(o,n){
+  const where=o.origem==="balcao"?"BALCÃO":o.modo==="entrega"?"ENTREGA CEASA":"RETIRADA NO BALCÃO";
+  const d=new Date(o.criado||Date.now());
+  const dt=new Intl.DateTimeFormat("pt-BR",{timeZone:"America/Fortaleza",day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}).format(d);
+  $("printArea").innerHTML=`<div class="tk">
+    <div class="tk-c tk-b">SUCO VERDE</div>
+    <div class="tk-c">Pedido #${n} · ${esc(codeOf(o.id))}</div>
+    <div class="tk-c">${esc(dt)} · ${esc(ORIG[o.origem]||"")}</div>
+    <div class="tk-big">${esc(where)}</div>
+    ${o.local?`<div class="tk-b">Local: ${esc(o.local)}</div>`:""}
+    ${o.cliente?`<div>Cliente: ${esc(o.cliente)}</div>`:""}
+    ${o.telefone?`<div>WhatsApp: ${esc(fmtTel(o.telefone))}</div>`:""}
+    <hr>
+    ${(o.itens||[]).map(i=>`<div class="tk-it"><span><b>${+i.q}x</b> ${esc(i.n)}</span><span>${brl(i.v)}</span></div>${[...(i.det||[]),...(i.ex||[]).map(x=>"+ "+x),i.obs?"OBS: "+i.obs:""].filter(Boolean).map(t=>`<div class="tk-sub">${esc(t)}</div>`).join("")}`).join("")}
+    <hr>
+    ${o.obs?`<div class="tk-b">OBS: ${esc(o.obs)}</div><hr>`:""}
+    <div class="tk-it tk-b"><span>TOTAL</span><span>${brl(o.total)}</span></div>
+    <div>Pagamento: ${esc(o.pagamento||"-")}${o.troco?" · troco p/ "+esc(o.troco):""}</div>
+    <div class="tk-c" style="margin-top:8px">Obrigado pela preferência!</div>
+  </div>`;
+  setTimeout(()=>{try{window.print()}catch(e){note("Seu navegador não deixou imprimir daqui.")}},50);
+}
+
 /* ---------- colar pedido ---------- */
 let parsed=null;
-function toDoc(o){return {cliente:o.cliente,modo:o.modo||"retirada",local:o.local,pagamento:o.pagamento,troco:o.troco,obs:o.obs,aviso:o.aviso,total:r2(o.total),
+function toDoc(o){return {telefone:o.telefone||"",cliente:o.cliente,modo:o.modo||"retirada",local:o.local,pagamento:o.pagamento,troco:o.troco,obs:o.obs,aviso:o.aviso,total:r2(o.total),
   itens:o.itens.map(i=>({q:i.q,n:i.n,v:i.v,det:i.det,ex:i.ex,obs:i.obs}))}}
 function renderPaste(){
   const t=$("pasteText").value.trim(); parsed=null;
