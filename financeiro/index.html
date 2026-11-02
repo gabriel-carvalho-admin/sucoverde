@@ -204,6 +204,9 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
 .rates input{width:80px;text-align:right}
 .note.warnc{background:#fdf0dc}
 .linkbtn{border:0;background:none;color:var(--leaf);font-weight:800;text-decoration:underline;padding:0}
+
+.tile b.small{font-size:1.15rem}
+.pe-top{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
 </style>
 </head>
 <body>
@@ -225,7 +228,7 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
 <div id="appView" hidden>
 <div class="wrap">
 <header class="fhead">
-  <h1>Financeiro Suco Verde<small><a href="../painel/">← Voltar ao painel de pedidos</a></small></h1>
+  <h1>Financeiro Suco Verde<small><a href="../painel/">← Painel de pedidos</a> · <a href="../compras/">Lançar compra</a></small></h1>
   <div class="hbtns">
     <button type="button" class="btn" id="btnCsv">Exportar CSV</button>
     <button type="button" class="btn" id="logout">Sair</button>
@@ -251,6 +254,7 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
   <button type="button" role="tab" data-t="resumo" aria-selected="true">Resumo</button>
   <button type="button" role="tab" data-t="melhores" aria-selected="false">Melhores pedidos</button>
   <button type="button" role="tab" data-t="produtos" aria-selected="false">Produtos</button>
+  <button type="button" role="tab" data-t="compras" aria-selected="false">Compras</button>
   <button type="button" role="tab" data-t="config" aria-selected="false">Custos e taxas</button>
 </nav>
 
@@ -323,6 +327,23 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
     <div class="box chartbox"><h3>Participação no lucro bruto</h3><div class="pie-row"><div class="cwrap pie"><canvas id="cPieLuc" role="img" aria-label="Pizza de participação no lucro"></canvas></div><ul class="legend" id="lPieLuc"></ul></div></div>
   </div>
   <div class="box"><h3>Todos os produtos e serviços</h3><div class="tscroll"><table class="tbl" id="prodTable"></table></div></div>
+</section>
+
+<!-- COMPRAS -->
+<section id="t-compras" hidden>
+  <div class="tiles">
+    <div class="tile"><span>Gasto em compras</span><b id="kCmp">—</b><em id="kCmpN"></em></div>
+    <div class="tile"><span>Onde mais gastou</span><b id="kCmpTop" class="small">—</b><em id="kCmpTopV"></em></div>
+    <div class="tile"><span>Compras ÷ vendas</span><b id="kCmpPct">—</b><em>quanto das vendas foi para compras</em></div>
+    <div class="tile"><span>Sobra de caixa</span><b id="kCaixa">—</b><em>vendas − taxas − impostos − compras − fixos</em></div>
+  </div>
+  <div class="grid2">
+    <div class="box chartbox"><h3>Gasto por local</h3><div class="pie-row"><div class="cwrap pie"><canvas id="cCmpLoja" role="img" aria-label="Pizza de gasto por local de compra"></canvas></div><ul class="legend" id="lCmpLoja"></ul></div></div>
+    <div class="box chartbox"><h3>Itens com maior gasto</h3><div class="cwrap tall"><canvas id="cCmpItem" role="img" aria-label="Itens com maior gasto"></canvas></div></div>
+  </div>
+  <div class="box"><h3>Preço médio pago por item</h3><p class="sub">Use para atualizar o custo dos produtos na aba Custos e taxas.</p><div class="tscroll"><table class="tbl" id="cmpPrices"></table></div></div>
+  <div class="box"><div class="pe-top"><h3>Compras do período</h3><button type="button" class="btn" id="cmpCsv">Baixar compras em CSV</button></div><div class="tscroll"><table class="tbl" id="cmpList"></table></div></div>
+  <p class="sub">A sobra de caixa é diferente do lucro: ela conta tudo o que foi comprado no período, inclusive o que ainda está no estoque. Para lançar uma compra, use a página <a href="../compras/">Compras</a>.</p>
 </section>
 
 <!-- CONFIG -->
@@ -411,6 +432,7 @@ function backend(){
         const s=await F.getDocs(F.query(F.collection(db,"pedidos"),F.where("dia",">=",a),F.where("dia","<=",b)));
         return s.docs.map(d=>{const o=Object.assign({id:d.id},d.data({serverTimestamps:"estimate"}));o.criado=o.criado&&o.criado.toMillis?o.criado.toMillis():(+o.criado||0);return o});
       },
+      async compras(a,b){const s=await F.getDocs(F.query(F.collection(db,"compras"),F.where("dia",">=",a),F.where("dia","<=",b)));return s.docs.map(d=>Object.assign({id:d.id},d.data({serverTimestamps:"estimate"})))},
       async getDoc(path){const s=await F.getDoc(F.doc(db,...path.split("/")));return s.exists()?s.data():null},
       setDoc(path,d){return F.setDoc(F.doc(db,...path.split("/")),d)}
     };
@@ -446,7 +468,7 @@ async function loadOrders(a,b){
 
 /* ---------- estado ---------- */
 let period="mes", anchor=tzDate(new Date()), tab="resumo";
-let MENU=DEFAULT_MENU, CFG=null, ORDERS=[], STATS=null, YEARMONTHS=null;
+let MENU=DEFAULT_MENU, CFG=null, ORDERS=[], STATS=null, YEARMONTHS=null, COMPRAS=[];
 const DEFAULT_CFG={custos:{},fixos:[{nome:"Aluguel",valor:0},{nome:"Energia",valor:0},{nome:"Água",valor:0},{nome:"Gás",valor:0},{nome:"Salários e encargos",valor:0},{nome:"Internet e telefone",valor:0},{nome:"Contador",valor:0}],taxas:{debito:0,credito:0,pix:0},imposto:0};
 function note(t){$("note").textContent=t||"";$("note").hidden=!t}
 
@@ -566,7 +588,8 @@ function renderResumo(S){
   $("dre").innerHTML=rows.map(([k,v,c])=>`<tr class="${c||""}"><th scope="row">${k}</th><td class="${v<0&&c?"neg":""}">${brl(v)}</td><td class="pc">${S.fat?pct(v/S.fat):""}</td></tr>`).join("")+
     `<tr><td colspan="3" class="dre-dl"><button type="button" class="btn" id="dreCsv">Baixar DRE em CSV</button></td></tr>`;
   $("dreCsv").onclick=exportDre;
-  $("dreNote").textContent="Custos fixos: "+brl(fixedMonthly())+" por mês"+(period==="dia"?", divididos por "+WORKDAYS+" dias abertos.":period==="semana"?", proporcional a 6 dias abertos.":period==="ano"?" × 12 meses.":".");
+  const ctot=COMPRAS.reduce((a,c)=>a+(+c.total||0),0);
+  $("dreNote").textContent=(ctot?"Compras lançadas no período: "+brl(ctot)+" (veja a aba Compras). ":"")+"Custos fixos: "+brl(fixedMonthly())+" por mês"+(period==="dia"?", divididos por "+WORKDAYS+" dias abertos.":period==="semana"?", proporcional a 6 dias abertos.":period==="ano"?" × 12 meses.":".");
   // ano
   $("yearBox").hidden=period!=="ano";
 }
@@ -601,6 +624,34 @@ function renderProdutos(S){
   $("prodTable").innerHTML=all.length?`<thead><tr><th>Produto ou serviço</th><th>Tipo</th><th class="num">Qtd.</th><th class="num">Faturamento</th><th class="num">Custo unit.</th><th class="num">CMV/CSV</th><th class="num">Lucro bruto</th><th class="num">Margem</th></tr></thead><tbody>`+
     all.map(p=>`<tr><td>${esc(p.n)}${!CFG.custos[p.n]?' <span class="flag">sem custo</span>':""}</td><td>${p.tipo==="servico"?"Serviço":"Produto"}</td><td class="num">${p.q}</td><td class="num">${brl(p.fat)}</td><td class="num">${brl(p.unit)}</td><td class="num">${brl(p.custo)}</td><td class="num ${p.lucro<0?"neg":""}">${brl(p.lucro)}</td><td class="num">${pct(p.margem)}</td></tr>`).join("")+"</tbody>":`<tbody><tr><td class="empty">Sem vendas no período.</td></tr></tbody>`;
 }
+
+/* ---------- compras ---------- */
+function baseQty(i){const q=+i.qtd||0,c=+i.conteudo||0,u=i.unidade||"";if(!c)return {v:q,u:"un"};if(u==="g")return {v:q*c/1000,u:"kg"};if(u==="ml")return {v:q*c/1000,u:"L"};return {v:q*c,u:u||"un"}}
+function renderCompras(S){
+  const tot=COMPRAS.reduce((a,c)=>a+(+c.total||0),0);
+  const byL={},byI={},pr={};
+  COMPRAS.forEach(c=>{const l=(c.loja||"").startsWith("Avulsa")?"Avulsa":c.loja||"Sem local";byL[l]=(byL[l]||0)+(+c.total||0);
+    (c.itens||[]).forEach(i=>{byI[i.nome]=(byI[i.nome]||0)+(+i.total||0);const b=baseQty(i);const k=i.nome+"|"+b.u;const p=pr[k]||(pr[k]={n:i.nome,u:b.u,q:0,t:0,min:Infinity,max:0});p.q+=b.v;p.t+=+i.total||0;if(b.v>0){const x=(+i.total||0)/b.v;p.min=Math.min(p.min,x);p.max=Math.max(p.max,x)}})});
+  $("kCmp").textContent=brl(tot); $("kCmpN").textContent=COMPRAS.length+(COMPRAS.length===1?" compra":" compras");
+  const top=Object.entries(byL).sort((a,b)=>b[1]-a[1])[0];
+  $("kCmpTop").textContent=top?top[0]:"—"; $("kCmpTopV").textContent=top?brl(top[1]):"";
+  $("kCmpPct").textContent=S.fat?pct(tot/S.fat):"—";
+  const caixa=S.fat-S.imp-S.taxas-tot-S.cf; $("kCaixa").textContent=brl(caixa); $("kCaixa").classList.toggle("neg",caixa<0);
+  pie("cCmpLoja","lCmpLoja",byL);
+  const ti=Object.entries(byI).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  chart("cCmpItem",barCfg(ti.map(x=>x[0]),ti.map(x=>r2(x[1])),{horizontal:true,color:COLORS[1]}));
+  const pl=Object.values(pr).sort((a,b)=>b.t-a.t);
+  const qf=v=>(Math.round(v*100)/100).toString().replace(".",",");
+  $("cmpPrices").innerHTML=pl.length?`<thead><tr><th>Item</th><th class="num">Quantidade</th><th class="num">Gasto</th><th class="num">Preço médio</th><th class="num">Menor – maior</th></tr></thead><tbody>`+
+    pl.map(p=>`<tr><td>${esc(p.n)}</td><td class="num">${qf(p.q)} ${esc(p.u)}</td><td class="num">${brl(p.t)}</td><td class="num"><b>${p.q?brl(p.t/p.q):"—"}</b>/${esc(p.u)}</td><td class="num">${isFinite(p.min)?(p.min===p.max?brl(p.min):brl(p.min)+" – "+brl(p.max)):"—"}</td></tr>`).join("")+"</tbody>":`<tbody><tr><td class="empty">Nenhuma compra lançada no período.</td></tr></tbody>`;
+  $("cmpList").innerHTML=COMPRAS.length?`<thead><tr><th>Data</th><th>Local</th><th>Itens</th><th>Pagamento</th><th class="num">Valor</th></tr></thead><tbody>`+
+    COMPRAS.map(c=>`<tr><td>${br(c.dia)}</td><td>${esc(c.loja)}</td><td>${esc((c.itens||[]).map(i=>i.nome).join(", "))}</td><td>${esc(c.pagamento||"—")}</td><td class="num">${brl(c.total)}</td></tr>`).join("")+"</tbody>":`<tbody><tr><td class="empty">Nenhuma compra lançada no período.</td></tr></tbody>`;
+}
+$("cmpCsv").addEventListener("click",()=>{
+  const rows=[["Data","Local","Tipo","Pagamento","Observação","Item","Marca","Qtd embalagens","Conteúdo","Unidade","Valor (R$)","Preço por embalagem (R$)"]];
+  COMPRAS.forEach(c=>(c.itens||[]).forEach(i=>rows.push([brY(c.dia),c.loja||"",c.tipo==="avulsa"?"Avulsa":"Loja",c.pagamento||"",c.obs||"",i.nome,i.marca||"",String(i.qtd).replace(".",","),i.conteudo?String(i.conteudo).replace(".",","):"",i.unidade||"",+i.total||0,(+i.total||0)/((+i.qtd)||1)])));
+  download("suco-verde-compras_"+fileTag()+".csv",rows);
+});
 
 /* ---------- configuração ---------- */
 function allNames(){
@@ -676,7 +727,7 @@ function recompute(){
   $("costWarn").hidden=!STATS.noCost;
   $("costWarn").innerHTML=STATS.noCost?`${STATS.noCost} ${STATS.noCost===1?"item vendido está":"itens vendidos estão"} sem custo cadastrado, então o CMV e os lucros aparecem maiores do que são. <button type="button" class="linkbtn" id="goCfg">Cadastrar custos</button>`:"";
   if($("goCfg")) $("goCfg").onclick=()=>setTab("config");
-  renderResumo(STATS); renderMelhores(STATS); renderProdutos(STATS);
+  renderResumo(STATS); renderMelhores(STATS); renderProdutos(STATS); renderCompras(STATS);
   if(period==="ano"){
     const m=Array(12).fill(0);STATS.ok.forEach(o=>{m[+o.dia.slice(5,7)-1]+=+o.total||0});
     $("yearTitle").textContent="Faturamento anual de "+anchor.slice(0,4)+": "+brl(STATS.fat);
@@ -689,10 +740,10 @@ async function load(){
   const seq=++loadSeq; $("perLabel").textContent=label();
   document.querySelectorAll("#periodBtns button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.p===period));
   note("Carregando vendas...");
-  try{const [a,b]=range();const o=await loadOrders(a,b); if(seq!==loadSeq)return; ORDERS=o; note(""); recompute();}
+  try{const [a,b]=range();const [o,c]=await Promise.all([loadOrders(a,b),be.compras(a,b).catch(()=>[])]); if(seq!==loadSeq)return; ORDERS=o; COMPRAS=c.sort((x,y)=>(y.dia||"").localeCompare(x.dia||"")); note(""); recompute();}
   catch(err){if(seq!==loadSeq)return; note(err&&err.code==="permission-denied"?"Sua conta não tem acesso às vendas.":"Não consegui carregar as vendas. Confira a internet e tente de novo.")}
 }
-function setTab(t){tab=t;document.querySelectorAll(".tabs button").forEach(b=>b.setAttribute("aria-selected",b.dataset.t===t));["resumo","melhores","produtos","config"].forEach(x=>$("t-"+x).hidden=x!==t);if(t==="config"){fixedDraft=[];renderConfig()} Object.values(charts).forEach(c=>c.resize())}
+function setTab(t){tab=t;document.querySelectorAll(".tabs button").forEach(b=>b.setAttribute("aria-selected",b.dataset.t===t));["resumo","melhores","produtos","compras","config"].forEach(x=>$("t-"+x).hidden=x!==t);if(t==="config"){fixedDraft=[];renderConfig()} Object.values(charts).forEach(c=>c.resize())}
 document.querySelector(".tabs").addEventListener("click",e=>{const b=e.target.closest("button[data-t]");if(b)setTab(b.dataset.t)});
 $("periodBtns").addEventListener("click",e=>{const b=e.target.closest("button[data-p]");if(!b)return;period=b.dataset.p;load()});
 $("prevP").onclick=()=>{shift(-1);load()}; $("nextP").onclick=()=>{shift(1);load()};
