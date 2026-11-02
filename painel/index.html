@@ -141,6 +141,8 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
 .ad-pr input.bad{border-color:var(--danger);background:#fdecea}
 .ad-foot{position:sticky;bottom:0;background:var(--paper);padding:10px 0 14px;margin-top:14px;border-top:1px solid var(--line)}
 
+.autowa{display:flex;gap:8px;align-items:center;font-weight:700;color:var(--bark);font-size:.9rem;margin:0 0 10px;cursor:pointer}
+.autowa input{width:18px;height:18px;accent-color:var(--leaf)}
 #printArea{display:none}
 @media print{
   @page{margin:3mm}
@@ -207,6 +209,7 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
   <button type="button" class="btn big" id="btnPaste">Colar pedido do WhatsApp</button>
 </div>
 
+<label class="autowa"><input type="checkbox" id="autoWa"> Abrir o WhatsApp do cliente sozinho quando eu mudar o status</label>
 <div class="chips" id="chips" role="group" aria-label="Filtrar pedidos"></div>
 <div class="orders" id="orders"></div>
 
@@ -296,19 +299,26 @@ function stLabel(o){
 }
 const fmtTel=d=>d&&d.length===11?"("+d.slice(0,2)+") "+d.slice(2,3)+" "+d.slice(3,7)+"-"+d.slice(7):d&&d.length===10?"("+d.slice(0,2)+") "+d.slice(2,6)+"-"+d.slice(6):(d||"");
 function waText(o){
-  const nm=(o.cliente||"").split(" ")[0], oi=nm?"Olá, "+nm+"! ":"Olá! ", c="#"+codeOf(o.id);
-  const link=o.origem==="site"?"\nAcompanhe aqui: "+SITE_URL+"#pedido-"+o.id:"";
+  const nm=(o.cliente||"").trim().split(" ")[0], c="*#"+codeOf(o.id)+"*";
+  const link=o.origem==="site"?"\n\n📍 Acompanhe seu pedido:\n"+SITE_URL+"#pedido-"+o.id:"";
+  const pg=(o.pagamento||"")+(o.troco?" (troco para "+o.troco+")":"");
+  const tot="💰 *Total:* "+brl(o.total)+(pg?" — "+pg:"");
+  const itens=(o.itens||[]).map(i=>"• "+i.q+"x "+i.n).join("\n");
+  const oi=nm?"Olá, "+nm+"!":"Olá!";
   switch(o.status){
-    case "novo": return oi+"Recebemos seu pedido "+c+" na Suco Verde. Já vamos preparar!"+link;
-    case "preparo": return oi+"Seu pedido "+c+" está sendo preparado."+link;
-    case "pronto": return o.modo==="entrega" ? oi+"Seu pedido "+c+" saiu para entrega aí na Ceasa!"+link : oi+"Seu pedido "+c+" está pronto! Pode retirar no balcão da Suco Verde.";
-    case "entregue": return "Obrigado pela preferência"+(nm?", "+nm:"")+"! Volte sempre à Suco Verde. 💚";
-    case "cancelado": return oi+"Seu pedido "+c+" foi cancelado. Qualquer dúvida, é só responder esta mensagem.";
+    case "novo": return oi+" 👋\nRecebemos seu pedido "+c+" na *Suco Verde* ✅\n\n"+itens+"\n\n"+tot+"\n\nJá vamos começar a preparar!"+link;
+    case "preparo": return oi+" 👩‍🍳\nSeu pedido "+c+" já está sendo preparado.\nAvisamos assim que ficar pronto! 💚"+link;
+    case "pronto": return o.modo==="entrega"
+      ? (nm?nm+", seu":"Seu")+" pedido "+c+" *saiu para entrega!* 🛵\nJá já chega aí"+(o.local?": *"+o.local+"*":" na Ceasa")+".\n\n"+tot+link
+      : (nm?nm+", seu":"Seu")+" pedido "+c+" *está pronto!* 🎉\nPode retirar no balcão da Suco Verde.\n\n"+tot;
+    case "entregue": return "Pedido "+c+" entregue ✅\nObrigado pela preferência"+(nm?", "+nm:"")+"! Bom apetite e até a próxima 💚🥤";
+    case "cancelado": return (nm?nm+", seu":"Seu")+" pedido "+c+" foi cancelado. 😕\nSe tiver alguma dúvida, é só responder esta mensagem.";
   }
   return oi;
 }
 const waLink=o=>"https://wa.me/55"+o.telefone+"?text="+encodeURIComponent(waText(o));
 let justChanged=null;
+const autoWa=()=>{try{return localStorage.getItem("sv_autowa")!=="0"}catch(e){return true}};
 const ORIG={site:"Site",whatsapp:"WhatsApp",balcao:"Balcão"};
 const OPEN=["novo","preparo","pronto"];
 
@@ -475,6 +485,8 @@ function card(o,n){
     </div>`:""}
   </article>`;
 }
+$("autoWa").checked=autoWa();
+$("autoWa").addEventListener("change",e=>{try{localStorage.setItem("sv_autowa",e.target.checked?"1":"0")}catch(_){}});
 $("chips").addEventListener("click",e=>{const b=e.target.closest(".chip");if(!b)return;filter=b.dataset.f;render()});
 $("orders").addEventListener("click",async e=>{
   const w=e.target.closest("a[data-wa]"); if(w){justChanged=null;setTimeout(render,50);return}
@@ -483,7 +495,12 @@ $("orders").addEventListener("click",async e=>{
   if(b.dataset.ask){cancelAsk=b.dataset.ask;render();return}
   if(b.dataset.keep){cancelAsk=null;render();return}
   if(b.dataset.to){
-    cancelAsk=null; b.disabled=true;
+    cancelAsk=null;
+    const cur=orders.find(x=>x.id===b.dataset.id);
+    if(autoWa()&&cur&&cur.telefone&&b.dataset.to!=="novo"){
+      try{window.open(waLink(Object.assign({},cur,{status:b.dataset.to})),"_blank","noopener")}catch(e){}
+    }
+    b.disabled=true;
     try{await be.update(b.dataset.id,{status:b.dataset.to}); const o=orders.find(x=>x.id===b.dataset.id); justChanged=o&&o.telefone&&b.dataset.to!=="novo"?b.dataset.id:null; render();}
     catch(err){note(writeErr(err));b.disabled=false}
   }
