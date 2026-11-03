@@ -214,6 +214,8 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
 .note a{color:var(--leaf);font-weight:800}
 .dre tr.dre-det th{font-weight:600;color:var(--muted);font-size:.9rem;padding-left:16px}
 .dre tr.dre-det td{color:var(--muted);font-size:.9rem}
+.tiles.six{grid-template-columns:repeat(3,1fr)}
+@media (max-width:620px){.tiles.six{grid-template-columns:repeat(2,1fr)}}
 </style>
 </head>
 <body>
@@ -271,11 +273,13 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
 
 <!-- RESUMO -->
 <section id="t-resumo">
-  <div class="tiles">
+  <div class="tiles six">
     <div class="tile"><span>Faturamento</span><b id="kFat">—</b><em id="kFatSub"></em></div>
     <div class="tile"><span>Pedidos</span><b id="kPed">—</b><em id="kTicket"></em></div>
     <div class="tile"><span>Lucro bruto</span><b id="kLB">—</b><em id="kLBm"></em></div>
     <div class="tile"><span>Lucro líquido</span><b id="kLL">—</b><em id="kLLm"></em></div>
+    <div class="tile"><span>Compras</span><b id="kCompR">—</b><em id="kCompRs"></em></div>
+    <div class="tile"><span>Sobra de caixa</span><b id="kSobra">—</b><em id="kSobraS"></em></div>
   </div>
   <div class="box pe">
     <div class="pe-top"><h3>Ponto de equilíbrio do mês</h3><b id="pePct">—</b></div>
@@ -285,6 +289,7 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
 
   <div class="box chartbox">
     <h3 id="cTimeTitle">Faturamento por dia</h3>
+    <ul class="legend inline" id="timeLegend"><li><i style="background:#1f6b2a"></i><span>Faturamento</span></li><li><i style="background:#eb6834"></i><span>Compras</span></li></ul>
     <div class="cwrap tall"><canvas id="cTime" aria-label="Gráfico de faturamento ao longo do período" role="img"></canvas></div>
   </div>
 
@@ -303,6 +308,12 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
     <h3>Demonstrativo do resultado (DRE)</h3>
     <table class="dre" id="dre"></table>
     <p class="sub" id="dreNote"></p>
+  </div>
+
+  <div class="box">
+    <h3>Resultado de caixa (com as compras)</h3>
+    <p class="sub">Mostra o dinheiro que sobrou de verdade: desconta tudo o que foi gasto em compras no período, inclusive o que ainda está no estoque.</p>
+    <table class="dre" id="caixaDre"></table>
   </div>
 
   <div class="box" id="yearBox" hidden>
@@ -367,7 +378,7 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
     <div class="tile"><span>Gasto em compras</span><b id="kCmp">—</b><em id="kCmpN"></em></div>
     <div class="tile"><span>Onde mais gastou</span><b id="kCmpTop" class="small">—</b><em id="kCmpTopV"></em></div>
     <div class="tile"><span>Compras ÷ vendas</span><b id="kCmpPct">—</b><em>quanto das vendas foi para compras</em></div>
-    <div class="tile"><span>Sobra de caixa</span><b id="kCaixa">—</b><em>vendas − taxas − impostos − compras − fixos</em></div>
+    <div class="tile"><span>Sobra de caixa</span><b id="kCaixa">—</b><em>vendas − compras − taxas − equipe − fixos</em></div>
   </div>
   <div class="grid2">
     <div class="box chartbox"><h3>Gasto por categoria</h3><div class="pie-row"><div class="cwrap pie"><canvas id="cCmpCat" role="img" aria-label="Pizza de gasto por categoria"></canvas></div><ul class="legend" id="lCmpCat"></ul></div></div>
@@ -603,6 +614,18 @@ function pie(id,legendId,map,{max=7,colorMap=null}={}){
   $(legendId).innerHTML=e.length?e.map((x,i)=>`<li><i style="background:${col[i]}"></i><span>${esc(x[0])}</span><b>${pct(x[1]/tot)}</b><small>${brl(x[1])}</small></li>`).join(""):`<li class="empty">Sem vendas no período.</li>`;
 }
 
+/* ---------- compras no resumo ---------- */
+function comprasStats(){
+  const byDay={}, byCat={}; let tot=0;
+  COMPRAS.forEach(c=>{const t=+c.total||0;tot+=t;byDay[c.dia]=(byDay[c.dia]||0)+t;(c.itens||[]).forEach(i=>{const k=i.categoria||"Sem categoria";byCat[k]=(byCat[k]||0)+(+i.total||0)})});
+  return {tot,byDay,byCat};
+}
+function groupedCfg(labels,a,b,la,lb){
+  return {type:"bar",data:{labels,datasets:[{label:la,data:a,backgroundColor:BRAND,borderRadius:4,borderSkipped:false,maxBarThickness:26},{label:lb,data:b,backgroundColor:COLORS[1],borderRadius:4,borderSkipped:false,maxBarThickness:26}]},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false},tooltip:{mode:"index",callbacks:{label:c=>c.dataset.label+": "+brl(c.parsed.y)}}},
+      scales:{x:{grid:{display:false},ticks:{color:"#52514e",font:tickFont}},y:{beginAtZero:true,grid:{color:"rgba(107,58,30,.08)"},border:{display:false},ticks:{color:"#7a6a58",font:tickFont,maxTicksLimit:8,callback:v=>brl0(v)}}}}};
+}
+
 /* ---------- desenho ---------- */
 function renderResumo(S){
   const [a,b]=range();
@@ -628,17 +651,21 @@ function renderResumo(S){
     const h={};for(let i=6;i<=13;i++)h[i]=0;
     S.ok.forEach(o=>{const x=hourOf(o.criado);h[x]=(h[x]||0)+(+o.total||0)});
     const ks=Object.keys(h).map(Number).sort((x,y)=>x-y);
-    $("cTimeTitle").textContent="Faturamento por hora";
+    $("cTimeTitle").textContent="Faturamento por hora";$("timeLegend").hidden=true;
     chart("cTime",barCfg(ks.map(k=>k+"h"),ks.map(k=>r2(h[k]))));
   } else if(period==="ano"){
     const m=Array(12).fill(0);Object.entries(S.byDay).forEach(([d,v])=>{m[+d.slice(5,7)-1]+=v});
-    $("cTimeTitle").textContent="Faturamento mensal";
-    chart("cTime",barCfg(MES3,m.map(r2)));
+    $("timeLegend").hidden=false;
+    const C=comprasStats(), mc=Array(12).fill(0);Object.entries(C.byDay).forEach(([d,v])=>{mc[+d.slice(5,7)-1]+=v});
+    $("cTimeTitle").textContent="Vendas × compras por mês";
+    chart("cTime",groupedCfg(MES3,m.map(r2),mc.map(r2),"Faturamento","Compras"));
   } else {
     const ds=daysBetween(a,b).filter(d=>dow(d)!==0), m={};ds.forEach(d=>m[d]=0);
     Object.entries(S.byDay).forEach(([d,v])=>{if(d in m)m[d]=v});
-    $("cTimeTitle").textContent="Faturamento por dia";
-    chart("cTime",barCfg(ds.map(d=>period==="semana"?WD[dow(d)]+" "+br(d):d.slice(8)),ds.map(d=>r2(m[d]))));
+    $("timeLegend").hidden=false;
+    const C=comprasStats();
+    $("cTimeTitle").textContent="Vendas × compras por dia";
+    chart("cTime",groupedCfg(ds.map(d=>period==="semana"?WD[dow(d)]+" "+br(d):d.slice(8)),ds.map(d=>r2(m[d])),ds.map(d=>r2(C.byDay[d]||0)),"Faturamento","Compras"));
   }
   pie("cPay","lPay",S.byPay); pie("cOrig","lOrig",S.byOrig);
   // DRE
@@ -650,6 +677,15 @@ function renderResumo(S){
   $("dreCsv").onclick=exportDre;
   const ctot=COMPRAS.reduce((a,c)=>a+(+c.total||0),0);
   $("dreNote").textContent=(S.diasCx?"Dias com caixa fechado usam a venda bruta do caixa. O CMV das vendas sem registro no painel é estimado pela mesma proporção dos pedidos registrados"+(S.cmvEst?" ("+brl(S.cmvEst)+")":"")+". ":"Nenhum dia com caixa fechado: o faturamento vem só dos pedidos registrados. ")+(S.equipe?"Pagamentos à equipe saem do caixa; não repita esses valores nos custos fixos. ":"")+(ctot?"Compras lançadas no período: "+brl(ctot)+" (veja a aba Compras). ":"")+"Custos fixos: "+brl(fixedMonthly())+" por mês"+(period==="dia"?", divididos por "+WORKDAYS+" dias abertos.":period==="semana"?", proporcional a 6 dias abertos.":period==="ano"?" × 12 meses.":".");
+  // compras e sobra de caixa
+  const C=comprasStats(), sobra=S.fat-S.imp-S.taxas-C.tot-S.equipe-S.cf;
+  $("kCompR").textContent=brl(C.tot); $("kCompRs").textContent=S.fat?pct(C.tot/S.fat)+" das vendas":(COMPRAS.length?COMPRAS.length+" compras":"nenhuma compra lançada");
+  $("kSobra").textContent=brl(sobra); $("kSobra").classList.toggle("neg",sobra<0); $("kSobraS").textContent="vendas − compras − taxas − equipe − fixos";
+  const cats=Object.entries(C.byCat).sort((a,b)=>b[1]-a[1]);
+  const cr=[["Faturamento bruto",S.fat,"dre-tot"],["(−) Impostos e taxas",-(S.imp+S.taxas)],["(−) Compras do período",-C.tot,"dre-sub"],...cats.map(([k,v])=>["   "+k,-v,"dre-det"]),
+    ...(S.equipe?[["(−) Pagamentos à equipe (caixa)",-S.equipe]]:[]),["(−) Custos fixos do período",-S.cf],["= Sobra de caixa",sobra,"dre-tot"]];
+  $("caixaDre").innerHTML=cr.map(([k,v,c])=>`<tr class="${c||""}"><th scope="row">${esc(k)}</th><td class="${v<0&&c==="dre-tot"?"neg":""}">${brl(v)}</td><td class="pc">${S.fat&&c!=="dre-det"?pct(v/S.fat):""}</td></tr>`).join("")+
+    (!COMPRAS.length?`<tr><td colspan="3" class="dre-dl sub">Nenhuma compra lançada neste período. <a href="../compras/">Lançar compra</a></td></tr>`:"");
   // ano
   $("yearBox").hidden=period!=="ano";
 }
@@ -741,7 +777,7 @@ function renderCompras(S){
   const top=Object.entries(byL).sort((a,b)=>b[1]-a[1])[0];
   $("kCmpTop").textContent=top?top[0]:"—"; $("kCmpTopV").textContent=top?brl(top[1]):"";
   $("kCmpPct").textContent=S.fat?pct(tot/S.fat):"—";
-  const caixa=S.fat-S.imp-S.taxas-tot-S.cf; $("kCaixa").textContent=brl(caixa); $("kCaixa").classList.toggle("neg",caixa<0);
+  const caixa=S.fat-S.imp-S.taxas-tot-S.equipe-S.cf; $("kCaixa").textContent=brl(caixa); $("kCaixa").classList.toggle("neg",caixa<0);
   pie("cCmpLoja","lCmpLoja",byL); pie("cCmpCat","lCmpCat",byC);
   const ts=Object.entries(byS).sort((a,b)=>b[1]-a[1]).slice(0,10);
   chart("cCmpSub",barCfg(ts.map(x=>x[0]),ts.map(x=>r2(x[1])),{horizontal:true,color:COLORS[2]}));
@@ -825,7 +861,7 @@ function exportDre(){
   const S=STATS; download("suco-verde-dre_"+fileTag()+".csv",[["Suco Verde – "+label()],[],["Linha","Valor (R$)","% do faturamento"],
     ["Faturamento bruto",S.fat,"100%"],["  Pedidos pelo site",S.site,""],["  Vendido na banca",S.bancaTot,""],["(-) Impostos",-S.imp,pct(S.fat?S.imp/S.fat:NaN)],["(-) Taxas de cartão e Pix",-S.taxas,pct(S.fat?S.taxas/S.fat:NaN)],["= Receita líquida",S.rl,pct(S.fat?S.rl/S.fat:NaN)],
     ["(-) CMV",-S.cmv,pct(S.fat?S.cmv/S.fat:NaN)],["(-) CSV",-S.csv,pct(S.fat?S.csv/S.fat:NaN)],["= Lucro bruto",S.lb,pct(S.fat?S.lb/S.fat:NaN)],
-    ["(-) Pagamentos à equipe (caixa)",-S.equipe,pct(S.fat?S.equipe/S.fat:NaN)],["(-) Custos fixos",-S.cf,pct(S.fat?S.cf/S.fat:NaN)],["= Lucro líquido",S.ll,pct(S.fat?S.ll/S.fat:NaN)],[],["Pedidos",S.n],["Ticket médio",S.ticket],["Ponto de equilíbrio mensal",isFinite(S.pe)?S.pe:""]]);
+    ["(-) Pagamentos à equipe (caixa)",-S.equipe,pct(S.fat?S.equipe/S.fat:NaN)],["(-) Custos fixos",-S.cf,pct(S.fat?S.cf/S.fat:NaN)],["= Lucro líquido",S.ll,pct(S.fat?S.ll/S.fat:NaN)],[],["Resultado de caixa"],["Compras do período",-comprasStats().tot],["Sobra de caixa",S.fat-S.imp-S.taxas-comprasStats().tot-S.equipe-S.cf],[],["Pedidos",S.n],["Ticket médio",S.ticket],["Ponto de equilíbrio mensal",isFinite(S.pe)?S.pe:""]]);
 }
 
 /* ---------- fluxo ---------- */
