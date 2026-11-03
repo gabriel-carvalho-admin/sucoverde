@@ -630,7 +630,9 @@ function groupedCfg(labels,a,b,la,lb){
 function renderResumo(S){
   const [a,b]=range();
   $("kFat").textContent=brl(S.fat);
-  const nd=daysBetween(a,b>tzDate(new Date())?tzDate(new Date()):b).filter(d=>dow(d)!==0).length;
+  const comprasDia={}; COMPRAS.forEach(c=>comprasDia[c.dia]=1);
+  const temDado=d=>dow(d)!==0||(S.byDay[d]||0)>0||comprasDia[d];   // domingo só aparece se teve venda ou compra
+  const nd=daysBetween(a,b>tzDate(new Date())?tzDate(new Date()):b).filter(d=>dow(d)!==0||(S.byDay[d]||0)>0).length;
   $("kFatSub").textContent=(S.diasCx?(S.diasCx===1?"com caixa fechado":S.diasCx+" dias com caixa fechado")+(S.bancaTot?" · "+brl(S.bancaTot)+" na banca":"")+(period==="dia"?"":" · "):"")+(period==="dia"?(S.diasCx?"":"só pedidos registrados (caixa não fechado)"):"média de "+brl(nd?S.fat/nd:0)+" por dia aberto");
   $("kPed").textContent=S.n; $("kTicket").textContent="ticket médio "+brl(S.ticket);
   $("kLB").textContent=brl(S.lb); $("kLBm").textContent="margem "+pct(S.fat?S.lb/S.fat:NaN);
@@ -660,7 +662,7 @@ function renderResumo(S){
     $("cTimeTitle").textContent="Vendas × compras por mês";
     chart("cTime",groupedCfg(MES3,m.map(r2),mc.map(r2),"Faturamento","Compras"));
   } else {
-    const ds=daysBetween(a,b).filter(d=>dow(d)!==0), m={};ds.forEach(d=>m[d]=0);
+    const ds=daysBetween(a,b).filter(temDado), m={};ds.forEach(d=>m[d]=0);
     Object.entries(S.byDay).forEach(([d,v])=>{if(d in m)m[d]=v});
     $("timeLegend").hidden=false;
     const C=comprasStats();
@@ -726,7 +728,7 @@ function cxRows(){
   const [a,b]=range(), today=tzDate(new Date()), end=b>today?today:b;
   const site={}; ORDERS.forEach(o=>{if(o.origem==="site"&&o.status!=="cancelado")site[o.dia]=(site[o.dia]||0)+(+o.total||0)});
   const cx={}; CAIXA.forEach(c=>cx[c.dia]=c);
-  const days=a>end?[]:daysBetween(a,end).filter(d=>dow(d)!==0||cx[d]||site[d]);
+  const days=a>end?[]:daysBetween(a,end).filter(d=>dow(d)!==0||cx[d]||site[d]||ORDERS.some(o=>o.dia===d&&o.status!=="cancelado"));
   return days.map(d=>{const c=cx[d],s=site[d]||0;const pg=c&&c.pagamentos?Object.values(c.pagamentos).reduce((x,y)=>x+(+y||0),0):0;
     return {d,c,site:s,vb:c?+c.vendaBruta||0:null,banca:c?(+c.vendaBruta||0)-s:null,din:c?(+c.dinheiro||0):0,pix:c?(+c.pix||0):0,cart:c?(+c.cartao||0):0,comp:c?(+c.compras||0):0,pg,pgs:c&&c.pagamentos||{}}});
 }
