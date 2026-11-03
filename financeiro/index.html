@@ -216,6 +216,28 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
 .dre tr.dre-det td{color:var(--muted);font-size:.9rem}
 .tiles.six{grid-template-columns:repeat(3,1fr)}
 @media (max-width:620px){.tiles.six{grid-template-columns:repeat(2,1fr)}}
+
+.eqgrid{width:100%;border-collapse:collapse;font-size:.88rem;min-width:760px}
+.eqgrid th,.eqgrid td{border-bottom:1px solid var(--line);padding:6px 4px;vertical-align:middle}
+.eqgrid thead th{color:var(--muted);font-size:.78rem;text-transform:uppercase;letter-spacing:.03em}
+.eqgrid thead th small{display:block;text-transform:none;font-weight:600;letter-spacing:0}
+.eqgrid tbody th{text-align:left;min-width:150px}
+.eqgrid .c{text-align:center}
+.eqgrid td.on{background:#eef6e6}
+.eqgrid .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.eqday{display:block;cursor:pointer;padding:2px}
+.eqday input{width:20px;height:20px;accent-color:var(--leaf)}
+.eqv{width:68px !important;padding:4px 6px !important;text-align:right;font-size:.85rem !important;margin-top:2px}
+.eqname{display:flex;align-items:center;justify-content:space-between;gap:6px;font-weight:800}
+.eqname .x{width:26px;height:26px;font-size:1rem}
+.eq-money{display:inline-flex;align-items:center;gap:4px;color:var(--muted);font-size:.8rem;font-weight:700}
+.eqrate{width:72px !important;padding:3px 6px !important;text-align:right;font-size:.82rem !important}
+.eq-add{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px}
+.eq-add>input{flex:1;min-width:160px}
+.eq-add .eq-money input{width:90px}
+.eq-h{font-family:var(--display);color:var(--bark);margin:18px 0 0}
+.eqgrid thead th.c{width:84px}
+.eq-money{white-space:nowrap}
 </style>
 </head>
 <body>
@@ -265,6 +287,7 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
   <button type="button" role="tab" data-t="produtos" aria-selected="false">Produtos</button>
   <button type="button" role="tab" data-t="caixa" aria-selected="false">Caixa</button>
   <button type="button" role="tab" data-t="compras" aria-selected="false">Compras</button>
+  <button type="button" role="tab" data-t="equipe" aria-selected="false">Equipe</button>
   <button type="button" role="tab" data-t="config" aria-selected="false">Custos e taxas</button>
 </nav>
 
@@ -393,6 +416,41 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
   <p class="sub">A sobra de caixa é diferente do lucro: ela conta tudo o que foi comprado no período, inclusive o que ainda está no estoque. Para lançar uma compra, use a página <a href="../compras/">Compras</a>.</p>
 </section>
 
+<!-- EQUIPE -->
+<section id="t-equipe" hidden>
+  <div class="box">
+    <div class="pe-top">
+      <h3 id="eqWeekTitle">Semana</h3>
+      <div class="nav-per"><button type="button" class="btn" id="eqPrev" aria-label="Semana anterior">‹</button><button type="button" class="btn" id="eqToday">Esta semana</button><button type="button" class="btn" id="eqNext" aria-label="Próxima semana">›</button></div>
+    </div>
+    <p class="sub">Marque os dias que cada pessoa trabalhou e quanto recebeu no dia. O valor já vem com a diária de cada um; mude se no dia foi diferente.</p>
+    <div class="tscroll"><table class="eqgrid" id="eqGrid"></table></div>
+    <div class="eq-add">
+      <input type="text" id="eqNewName" placeholder="Nome do trabalhador" aria-label="Nome do novo trabalhador">
+      <span class="eq-money">R$ <input type="text" inputmode="decimal" id="eqNewRate" placeholder="diária" aria-label="Diária do novo trabalhador"></span>
+      <button type="button" class="btn" id="eqAdd">+ Adicionar trabalhador</button>
+    </div>
+    <p class="err" id="eqMsg"></p>
+    <div class="row"><button type="button" class="btn solid big" id="eqSave">Salvar semana</button></div>
+  </div>
+
+  <h3 class="eq-h" id="eqPerTitle">No período selecionado</h3>
+  <div class="tiles">
+    <div class="tile"><span>Total da equipe</span><b id="kEqTot">—</b><em id="kEqDias"></em></div>
+    <div class="tile"><span>Pago pelo caixa</span><b id="kEqCx">—</b><em>informado no fechamento</em></div>
+    <div class="tile"><span>Diferença</span><b id="kEqDif">—</b><em id="kEqDifS"></em></div>
+    <div class="tile"><span>Equipe ÷ vendas</span><b id="kEqPct">—</b><em>quanto das vendas foi para a equipe</em></div>
+  </div>
+  <div class="grid2">
+    <div class="box chartbox"><h3>Por trabalhador</h3><div class="pie-row"><div class="cwrap pie"><canvas id="cEqPie" role="img" aria-label="Pizza do valor por trabalhador"></canvas></div><ul class="legend" id="lEqPie"></ul></div></div>
+    <div class="box chartbox"><h3 id="cEqBarT">Equipe por semana</h3><div class="cwrap tall"><canvas id="cEqBar" role="img" aria-label="Valor da equipe por semana"></canvas></div></div>
+  </div>
+  <div class="box"><div class="pe-top"><h3>Resumo por trabalhador</h3><button type="button" class="btn" id="eqCsv">Baixar equipe em CSV</button></div>
+    <div class="tscroll"><table class="tbl" id="eqTable"></table></div>
+    <p class="sub">"Pago pelo caixa" vem dos campos de pagamento do fechamento de caixa (só para quem tem campo lá). A diferença positiva é o que ainda falta pagar.</p>
+  </div>
+</section>
+
 <!-- CONFIG -->
 <section id="t-config" hidden>
   <p class="sub">Esses números alimentam o CMV, o CSV, os lucros e o ponto de equilíbrio. Preencha uma vez e atualize quando os preços dos fornecedores mudarem.</p>
@@ -480,6 +538,7 @@ function backend(){
         const s=await F.getDocs(F.query(F.collection(db,"pedidos"),F.where("dia",">=",a),F.where("dia","<=",b)));
         return s.docs.map(d=>{const o=Object.assign({id:d.id},d.data({serverTimestamps:"estimate"}));o.criado=o.criado&&o.criado.toMillis?o.criado.toMillis():(+o.criado||0);return o});
       },
+      async equipe(a,b){const s=await F.getDocs(F.query(F.collection(db,"equipe"),F.where("semana",">=",a),F.where("semana","<=",b)));return s.docs.map(d=>d.data())},
       async caixa(a,b){const s=await F.getDocs(F.query(F.collection(db,"caixa"),F.where("dia",">=",a),F.where("dia","<=",b)));return s.docs.map(d=>d.data())},
       async compras(a,b){const s=await F.getDocs(F.query(F.collection(db,"compras"),F.where("dia",">=",a),F.where("dia","<=",b)));return s.docs.map(d=>Object.assign({id:d.id},d.data({serverTimestamps:"estimate"})))},
       async getDoc(path){const s=await F.getDoc(F.doc(db,...path.split("/")));return s.exists()?s.data():null},
@@ -517,7 +576,7 @@ async function loadOrders(a,b){
 
 /* ---------- estado ---------- */
 let period="mes", anchor=tzDate(new Date()), tab="resumo";
-let MENU=DEFAULT_MENU, CFG=null, ORDERS=[], STATS=null, YEARMONTHS=null, COMPRAS=[], CAIXA=[];
+let MENU=DEFAULT_MENU, CFG=null, ORDERS=[], STATS=null, YEARMONTHS=null, COMPRAS=[], CAIXA=[], EQUIPE=[], TEAM=null;
 const DEFAULT_CFG={custos:{},fixos:[{nome:"Aluguel",valor:0},{nome:"Energia",valor:0},{nome:"Água",valor:0},{nome:"Gás",valor:0},{nome:"Salários e encargos",valor:0},{nome:"Internet e telefone",valor:0},{nome:"Contador",valor:0}],taxas:{debito:0,credito:0,pix:0},imposto:0};
 function note(t){$("note").textContent=t||"";$("note").hidden=!t}
 
@@ -584,13 +643,15 @@ function compute(orders){
   });
   if(banca>0) byOrig["Banca sem registro (caixa)"]=banca;
   const site=ok.filter(o=>o.origem==="site").reduce((a,o)=>a+(+o.total||0),0);
+  const eqCaixa=equipe, eqTab=teamDue().tot;
+  let equipeFonte="caixa"; if(eqTab>0){equipe=eqTab;equipeFonte="equipe"}
   const imp=fat*((+CFG.imposto||0)/100);
   const rl=fat-imp-taxas, lb=rl-cmv-csv, cf=fixedMonthly()*fixedFactor(), ll=lb-equipe-cf;
   const mc=fat>0?lb/fat:NaN, pe=mc>0?fixedMonthly()/mc:NaN;
   Object.values(prod).forEach(p=>{p.lucro=p.fat-p.custo;p.margem=p.fat>0?p.lucro/p.fat:NaN});
   Object.keys(byPay).forEach(k=>{if(!(byPay[k]>0))delete byPay[k]});
   const noCost=Object.values(prod).filter(p=>p.q>0&&!CFG.custos[p.n]).length;
-  return {site,bancaTot:fat-site,ok,fat,fatO,n:ok.length,ticket:ok.length?fatO/ok.length:0,imp,taxas,rl,cmv,csv,lb,cf,ll,mc,pe,prod,byPay,byOrig,noCost,banca,ajuste,equipe,diasCx,cmvEst,byDay};
+  return {site,bancaTot:fat-site,ok,fat,fatO,n:ok.length,ticket:ok.length?fatO/ok.length:0,imp,taxas,rl,cmv,csv,lb,cf,ll,mc,pe,prod,byPay,byOrig,noCost,banca,ajuste,equipe,equipeFonte,eqCaixa,diasCx,cmvEst,byDay};
 }
 
 /* ---------- gráficos ---------- */
@@ -673,19 +734,19 @@ function renderResumo(S){
   // DRE
   const rows=[["Faturamento bruto",S.fat,"dre-tot"],["   Pedidos pelo site",S.site,"dre-det"],["   Vendido na banca",S.bancaTot,"dre-det"],["(−) Impostos sobre vendas",-S.imp],["(−) Taxas de cartão e Pix",-S.taxas],["= Receita líquida",S.rl,"dre-sub"],
     ["(−) CMV – custo das mercadorias vendidas",-S.cmv],["(−) CSV – custo dos serviços vendidos",-S.csv],["= Lucro bruto",S.lb,"dre-sub"],
-    ...(S.equipe?[["(−) Pagamentos à equipe (caixa)",-S.equipe]]:[]),["(−) Custos fixos do período",-S.cf],["= Lucro líquido",S.ll,"dre-tot"]];
+    ...(S.equipe?[[S.equipeFonte==="equipe"?"(−) Equipe (diárias da aba Equipe)":"(−) Pagamentos à equipe (caixa)",-S.equipe]]:[]),["(−) Custos fixos do período",-S.cf],["= Lucro líquido",S.ll,"dre-tot"]];
   $("dre").innerHTML=rows.map(([k,v,c])=>`<tr class="${c||""}"><th scope="row">${k}</th><td class="${v<0&&c?"neg":""}">${brl(v)}</td><td class="pc">${S.fat&&c!=="dre-det"?pct(v/S.fat):""}</td></tr>`).join("")+
     `<tr><td colspan="3" class="dre-dl"><button type="button" class="btn" id="dreCsv">Baixar DRE em CSV</button></td></tr>`;
   $("dreCsv").onclick=exportDre;
   const ctot=COMPRAS.reduce((a,c)=>a+(+c.total||0),0);
-  $("dreNote").textContent=(S.diasCx?"Dias com caixa fechado usam a venda bruta do caixa. O CMV das vendas sem registro no painel é estimado pela mesma proporção dos pedidos registrados"+(S.cmvEst?" ("+brl(S.cmvEst)+")":"")+". ":"Nenhum dia com caixa fechado: o faturamento vem só dos pedidos registrados. ")+(S.equipe?"Pagamentos à equipe saem do caixa; não repita esses valores nos custos fixos. ":"")+(ctot?"Compras lançadas no período: "+brl(ctot)+" (veja a aba Compras). ":"")+"Custos fixos: "+brl(fixedMonthly())+" por mês"+(period==="dia"?", divididos por "+WORKDAYS+" dias abertos.":period==="semana"?", proporcional a 6 dias abertos.":period==="ano"?" × 12 meses.":".");
+  $("dreNote").textContent=(S.diasCx?"Dias com caixa fechado usam a venda bruta do caixa. O CMV das vendas sem registro no painel é estimado pela mesma proporção dos pedidos registrados"+(S.cmvEst?" ("+brl(S.cmvEst)+")":"")+". ":"Nenhum dia com caixa fechado: o faturamento vem só dos pedidos registrados. ")+(S.equipe?(S.equipeFonte==="equipe"?"A equipe usa as diárias lançadas na aba Equipe; ":"A equipe usa os pagamentos do fechamento de caixa (lance as diárias na aba Equipe para mais precisão); ")+"não repita salários nos custos fixos. ":"")+(ctot?"Compras lançadas no período: "+brl(ctot)+" (veja a aba Compras). ":"")+"Custos fixos: "+brl(fixedMonthly())+" por mês"+(period==="dia"?", divididos por "+WORKDAYS+" dias abertos.":period==="semana"?", proporcional a 6 dias abertos.":period==="ano"?" × 12 meses.":".");
   // compras e sobra de caixa
   const C=comprasStats(), sobra=S.fat-S.imp-S.taxas-C.tot-S.equipe-S.cf;
   $("kCompR").textContent=brl(C.tot); $("kCompRs").textContent=S.fat?pct(C.tot/S.fat)+" das vendas":(COMPRAS.length?COMPRAS.length+" compras":"nenhuma compra lançada");
   $("kSobra").textContent=brl(sobra); $("kSobra").classList.toggle("neg",sobra<0); $("kSobraS").textContent="vendas − compras − taxas − equipe − fixos";
   const cats=Object.entries(C.byCat).sort((a,b)=>b[1]-a[1]);
   const cr=[["Faturamento bruto",S.fat,"dre-tot"],["(−) Impostos e taxas",-(S.imp+S.taxas)],["(−) Compras do período",-C.tot,"dre-sub"],...cats.map(([k,v])=>["   "+k,-v,"dre-det"]),
-    ...(S.equipe?[["(−) Pagamentos à equipe (caixa)",-S.equipe]]:[]),["(−) Custos fixos do período",-S.cf],["= Sobra de caixa",sobra,"dre-tot"]];
+    ...(S.equipe?[[S.equipeFonte==="equipe"?"(−) Equipe (diárias)":"(−) Pagamentos à equipe (caixa)",-S.equipe]]:[]),["(−) Custos fixos do período",-S.cf],["= Sobra de caixa",sobra,"dre-tot"]];
   $("caixaDre").innerHTML=cr.map(([k,v,c])=>`<tr class="${c||""}"><th scope="row">${esc(k)}</th><td class="${v<0&&c==="dre-tot"?"neg":""}">${brl(v)}</td><td class="pc">${S.fat&&c!=="dre-det"?pct(v/S.fat):""}</td></tr>`).join("")+
     (!COMPRAS.length?`<tr><td colspan="3" class="dre-dl sub">Nenhuma compra lançada neste período. <a href="../compras/">Lançar compra</a></td></tr>`:"");
   // ano
@@ -766,6 +827,106 @@ $("cxCsv").addEventListener("click",()=>{
   const out=[["Data","Venda bruta (R$)","Pedidos pelo site (R$)","Vendido na banca (R$)","Dinheiro líquido (R$)","Pix (R$)","Máquina de cartão (R$)","Compras do dia (R$)",...names.map(n=>"Pagamento "+n+" (R$)"),"Observação"]];
   rows.forEach(r=>{if(r.c)out.push([brY(r.d),r.vb,r.site,r.banca,r.din,r.pix,r.cart,r.comp,...names.map(n=>+r.pgs[n]||0),r.c.obs||""]);else out.push([brY(r.d),"sem fechamento",r.site])});
   download("suco-verde-caixa_"+fileTag()+".csv",out);
+});
+
+/* ---------- equipe ---------- */
+const WDS=["Seg","Ter","Qua","Qui","Sex","Sáb","Dom"];
+const nkey=s=>String(s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim();
+function teamList(){return (TEAM&&TEAM.trabalhadores)||[{nome:"Luzinete",diaria:0},{nome:"Julio",diaria:0},{nome:"Josilandia",diaria:0}]}
+function teamDue(){
+  const [a,b]=range(); const by={}, days={}; let tot=0;
+  EQUIPE.forEach(w=>Object.entries(w.registros||{}).forEach(([n,ds])=>Object.entries(ds||{}).forEach(([d,v])=>{if(d>=a&&d<=b&&+v>0){by[n]=(by[n]||0)+(+v);days[n]=(days[n]||0)+1;tot+=+v}})));
+  return {by,days,tot};
+}
+function paidByCaixa(){const by={};CAIXA.forEach(c=>Object.entries(c.pagamentos||{}).forEach(([n,v])=>{const k=nkey(n);by[k]=(by[k]||0)+(+v||0)}));return by}
+let wk=null, wkData={}, wkTeam=[], wkDirty=false;
+async function loadWeek(){
+  if(!wk) wk=weekStart(anchor);
+  const days=daysBetween(wk,addDays(wk,6));
+  $("eqWeekTitle").textContent="Semana de "+br(wk)+" a "+br(addDays(wk,6))+"/"+addDays(wk,6).slice(0,4);
+  $("eqMsg").textContent="";
+  let doc=null; try{doc=await be.getDoc("equipe/"+wk)}catch(e){}
+  wkTeam=JSON.parse(JSON.stringify(teamList()));
+  wkData={}; const reg=(doc&&doc.registros)||{};
+  Object.keys(reg).forEach(n=>{if(!wkTeam.some(t=>t.nome===n))wkTeam.push({nome:n,diaria:0})});
+  wkTeam.forEach(t=>{wkData[t.nome]={};days.forEach(d=>{const v=reg[t.nome]&&reg[t.nome][d];if(v!=null)wkData[t.nome][d]=+v})});
+  wkDirty=false; renderWeek();
+}
+function renderWeek(){
+  const days=daysBetween(wk,addDays(wk,6));
+  const head=`<thead><tr><th>Trabalhador</th>${days.map((d,i)=>`<th class="c">${WDS[i]}<small>${br(d)}</small></th>`).join("")}<th class="num">Dias</th><th class="num">Total</th></tr></thead>`;
+  const rows=wkTeam.map((t,ti)=>{const r=wkData[t.nome]||{};let tot=0,n=0;
+    const cells=days.map(d=>{const on=r[d]!=null;if(on){tot+=+r[d]||0;n++}
+      return `<td class="c${on?" on":""}"><label class="eqday"><input type="checkbox" data-t="${ti}" data-d="${d}" ${on?"checked":""} aria-label="${esc(t.nome)} trabalhou em ${br(d)}"></label>${on?`<input type="text" inputmode="decimal" class="eqv" data-t="${ti}" data-d="${d}" value="${(+r[d]||0).toFixed(2).replace(".",",")}" aria-label="Valor de ${esc(t.nome)} em ${br(d)}">`:""}</td>`}).join("");
+    return `<tr><th scope="row"><div class="eqname">${esc(t.nome)}<button type="button" class="x" data-rmw="${ti}" aria-label="Tirar ${esc(t.nome)} da equipe">×</button></div><span class="eq-money">diária R$ <input type="text" inputmode="decimal" class="eqrate" data-t="${ti}" value="${(+t.diaria||0).toFixed(2).replace(".",",")}" aria-label="Diária de ${esc(t.nome)}"></span></th>${cells}<td class="num">${n}</td><td class="num"><b>${brl(tot)}</b></td></tr>`}).join("");
+  const dayTot=days.map(d=>wkTeam.reduce((a,t)=>a+((wkData[t.nome]||{})[d]!=null?+(wkData[t.nome][d])||0:0),0));
+  const all=dayTot.reduce((a,x)=>a+x,0);
+  $("eqGrid").innerHTML=head+"<tbody>"+(rows||`<tr><td colspan="10" class="empty">Adicione os trabalhadores abaixo.</td></tr>`)+`<tr class="totrow"><th>Total do dia</th>${dayTot.map(v=>`<td class="c">${v?brl(v):"—"}</td>`).join("")}<td></td><td class="num"><b>${brl(all)}</b></td></tr></tbody>`;
+}
+$("eqGrid").addEventListener("change",e=>{
+  const t=e.target;
+  if(t.type==="checkbox"){const w=wkTeam[+t.dataset.t];wkData[w.nome]=wkData[w.nome]||{};if(t.checked)wkData[w.nome][t.dataset.d]=+w.diaria||0;else delete wkData[w.nome][t.dataset.d];wkDirty=true;renderWeek();
+    if(t.checked){const inp=$("eqGrid").querySelector(`input.eqv[data-t="${t.dataset.t}"][data-d="${t.dataset.d}"]`);if(inp&&!(+w.diaria))inp.focus()}}
+});
+$("eqGrid").addEventListener("input",e=>{
+  const t=e.target; const w=t.dataset.t!=null?wkTeam[+t.dataset.t]:null; if(!w)return;
+  if(t.classList.contains("eqv")){const v=num(t.value);wkData[w.nome][t.dataset.d]=isNaN(v)?0:v;wkDirty=true}
+  if(t.classList.contains("eqrate")){const v=num(t.value);w.diaria=isNaN(v)?0:v;wkDirty=true}
+});
+$("eqGrid").addEventListener("focusout",e=>{if(e.target.classList.contains("eqv")||e.target.classList.contains("eqrate"))renderWeek()});
+$("eqGrid").addEventListener("click",e=>{const b=e.target.closest("[data-rmw]");if(!b)return;const w=wkTeam[+b.dataset.rmw];
+  if(Object.keys(wkData[w.nome]||{}).length&&b.dataset.sure!=="1"){b.dataset.sure="1";$("eqMsg").textContent="Toque no × de novo para tirar "+w.nome+" (os dias marcados nesta semana serão apagados ao salvar).";return}
+  wkTeam.splice(+b.dataset.rmw,1);delete wkData[w.nome];wkDirty=true;$("eqMsg").textContent="";renderWeek()});
+$("eqAdd").addEventListener("click",()=>{
+  const n=$("eqNewName").value.trim().replace(/^./,c=>c.toUpperCase()); const r=num($("eqNewRate").value);
+  if(!n){$("eqMsg").textContent="Escreva o nome do trabalhador.";$("eqNewName").focus();return}
+  if(wkTeam.some(t=>nkey(t.nome)===nkey(n))){$("eqMsg").textContent=n+" já está na lista.";return}
+  wkTeam.push({nome:n,diaria:isNaN(r)?0:r});wkData[n]={};$("eqNewName").value="";$("eqNewRate").value="";$("eqMsg").textContent="";wkDirty=true;renderWeek();
+});
+$("eqNewRate").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();$("eqAdd").click()}});
+function wkGo(n){if(wkDirty&&$("eqSave").dataset.leave!=="1"){$("eqMsg").textContent="Você não salvou esta semana. Toque de novo na seta para sair sem salvar.";$("eqSave").dataset.leave="1";setTimeout(()=>$("eqSave").dataset.leave="",4000);return}
+  $("eqSave").dataset.leave="";wk=n===0?weekStart(tzDate(new Date())):addDays(wk,7*n);loadWeek()}
+$("eqPrev").onclick=()=>wkGo(-1); $("eqNext").onclick=()=>wkGo(1); $("eqToday").onclick=()=>wkGo(0);
+$("eqSave").addEventListener("click",async()=>{
+  const registros={};
+  for(const t of wkTeam){const r=wkData[t.nome]||{};const o={};for(const [d,v] of Object.entries(r)){if(isNaN(+v)||+v<0){$("eqMsg").textContent="Confira o valor de "+t.nome+" em "+br(d)+".";return}o[d]=r2(+v)}if(Object.keys(o).length)registros[t.nome]=o}
+  const team={trabalhadores:wkTeam.map(t=>({nome:t.nome,diaria:r2(+t.diaria||0)}))};
+  $("eqSave").disabled=true;$("eqSave").textContent="Salvando…";$("eqMsg").textContent="";
+  try{
+    await be.setDoc("equipe/"+wk,{semana:wk,registros,atualizado:Date.now()});
+    await be.setDoc("config/equipe",team); TEAM=team; wkDirty=false;
+    const i=EQUIPE.findIndex(w=>w.semana===wk); const nw={semana:wk,registros}; if(i>=0)EQUIPE[i]=nw; else EQUIPE.push(nw);
+    recompute(); $("eqSave").textContent="Semana salva!"; setTimeout(()=>$("eqSave").textContent="Salvar semana",2000);
+  }catch(err){$("eqMsg").textContent=err&&err.code==="permission-denied"?"Sua conta não tem permissão para salvar a equipe.":"Não consegui salvar agora. Tente de novo.";$("eqSave").textContent="Salvar semana"}
+  $("eqSave").disabled=false;
+});
+function renderEquipeResumo(){
+  const D=teamDue(), P=paidByCaixa();
+  const names=[...new Set([...teamList().map(t=>t.nome),...Object.keys(D.by)])];
+  const paidTot=names.reduce((a,n)=>a+(P[nkey(n)]||0),0);
+  const diasTot=Object.values(D.days).reduce((a,x)=>a+x,0);
+  $("eqPerTitle").textContent="No período: "+label();
+  $("kEqTot").textContent=brl(D.tot); $("kEqDias").textContent=diasTot+(diasTot===1?" diária":" diárias");
+  $("kEqCx").textContent=brl(paidTot);
+  const dif=D.tot-paidTot; $("kEqDif").textContent=brl(dif); $("kEqDif").classList.toggle("neg",dif<0);
+  $("kEqDifS").textContent=dif>0?"ainda falta pagar":dif<0?"pago a mais que o lançado":"tudo certo";
+  $("kEqPct").textContent=STATS&&STATS.fat?pct(D.tot/STATS.fat):"—";
+  const cm={}; names.forEach((n,i)=>cm[n]=COLORS[i%COLORS.length]);
+  pie("cEqPie","lEqPie",D.by,{colorMap:cm});
+  // barras por semana (ou por mês no ano)
+  let labels=[],vals=[];
+  if(period==="ano"){const m=Array(12).fill(0);EQUIPE.forEach(w=>Object.values(w.registros||{}).forEach(ds=>Object.entries(ds).forEach(([d,v])=>{const [a,b]=range();if(d>=a&&d<=b)m[+d.slice(5,7)-1]+=+v||0})));labels=MES3;vals=m.map(r2);$("cEqBarT").textContent="Equipe por mês"}
+  else{const [a,b]=range();const ws={};EQUIPE.forEach(w=>Object.values(w.registros||{}).forEach(ds=>Object.entries(ds).forEach(([d,v])=>{if(d>=a&&d<=b){const s=weekStart(d);ws[s]=(ws[s]||0)+(+v||0)}})));
+    const ks=Object.keys(ws).sort();labels=ks.map(k=>br(k)+"–"+br(addDays(k,6)));vals=ks.map(k=>r2(ws[k]));$("cEqBarT").textContent="Equipe por semana"}
+  chart("cEqBar",barCfg(labels,vals,{color:COLORS[6]}));
+  $("eqTable").innerHTML=names.length?`<thead><tr><th>Trabalhador</th><th class="num">Dias trabalhados</th><th class="num">Média por dia</th><th class="num">Total lançado</th><th class="num">Pago pelo caixa</th><th class="num">Diferença</th></tr></thead><tbody>`+
+    names.map(n=>{const t=D.by[n]||0,d=D.days[n]||0,p=P[nkey(n)]||0,df=t-p;return `<tr><td>${esc(n)}</td><td class="num">${d}</td><td class="num">${d?brl(t/d):"—"}</td><td class="num"><b>${brl(t)}</b></td><td class="num">${brl(p)}</td><td class="num ${df<0?"neg":""}">${brl(df)}</td></tr>`}).join("")+
+    `<tr class="totrow"><td>Total</td><td class="num">${diasTot}</td><td></td><td class="num">${brl(D.tot)}</td><td class="num">${brl(paidTot)}</td><td class="num">${brl(dif)}</td></tr></tbody>`:`<tbody><tr><td class="empty">Nenhum trabalhador cadastrado.</td></tr></tbody>`;
+}
+$("eqCsv").addEventListener("click",()=>{
+  const [a,b]=range(), rows=[["Semana","Data","Dia","Trabalhador","Valor (R$)"]];
+  EQUIPE.slice().sort((x,y)=>x.semana.localeCompare(y.semana)).forEach(w=>Object.entries(w.registros||{}).forEach(([n,ds])=>Object.entries(ds).sort().forEach(([d,v])=>{if(d>=a&&d<=b)rows.push([brY(w.semana),brY(d),WD[dow(d)],n,+v||0])})));
+  download("suco-verde-equipe_"+fileTag()+".csv",rows);
 });
 
 /* ---------- compras ---------- */
@@ -872,7 +1033,7 @@ function recompute(){
   $("costWarn").hidden=!STATS.noCost;
   $("costWarn").innerHTML=STATS.noCost?`${STATS.noCost} ${STATS.noCost===1?"item vendido está":"itens vendidos estão"} sem custo cadastrado, então o CMV e os lucros aparecem maiores do que são. <button type="button" class="linkbtn" id="goCfg">Cadastrar custos</button>`:"";
   if($("goCfg")) $("goCfg").onclick=()=>setTab("config");
-  renderResumo(STATS); renderMelhores(STATS); renderProdutos(STATS); renderCompras(STATS); renderCaixa();
+  renderResumo(STATS); renderMelhores(STATS); renderProdutos(STATS); renderCompras(STATS); renderCaixa(); renderEquipeResumo();
   if(period==="ano"){
     const m=Array(12).fill(0);Object.entries(STATS.byDay).forEach(([d,v])=>{m[+d.slice(5,7)-1]+=v});
     $("yearTitle").textContent="Faturamento anual de "+anchor.slice(0,4)+": "+brl(STATS.fat);
@@ -882,13 +1043,13 @@ function recompute(){
 }
 let loadSeq=0;
 async function load(){
-  const seq=++loadSeq; $("perLabel").textContent=label();
+  const seq=++loadSeq; if(!wkDirty){const [ra,rb]=range(),td=tzDate(new Date());wk=weekStart(td>=ra&&td<=rb?td:anchor)} $("perLabel").textContent=label();
   document.querySelectorAll("#periodBtns button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.p===period));
   note("Carregando vendas...");
-  try{const [a,b]=range();const [o,c,x]=await Promise.all([loadOrders(a,b),be.compras(a,b).catch(()=>[]),be.caixa?be.caixa(a,b).catch(()=>[]):Promise.resolve([])]); if(seq!==loadSeq)return; ORDERS=o; CAIXA=x; COMPRAS=c.sort((x,y)=>(y.dia||"").localeCompare(x.dia||"")); note(""); recompute();}
+  try{const [a,b]=range();const [o,c,x,eq]=await Promise.all([loadOrders(a,b),be.compras(a,b).catch(()=>[]),be.caixa?be.caixa(a,b).catch(()=>[]):Promise.resolve([]),be.equipe?be.equipe(addDays(weekStart(a),-1),b).catch(()=>[]):Promise.resolve([])]); if(seq!==loadSeq)return; ORDERS=o; CAIXA=x; EQUIPE=eq; COMPRAS=c.sort((x,y)=>(y.dia||"").localeCompare(x.dia||"")); note(""); recompute(); if(tab==="equipe"&&!wkDirty)loadWeek();}
   catch(err){if(seq!==loadSeq)return; note(err&&err.code==="permission-denied"?"Sua conta não tem acesso às vendas.":"Não consegui carregar as vendas. Confira a internet e tente de novo.")}
 }
-function setTab(t){tab=t;document.querySelectorAll(".tabs button").forEach(b=>b.setAttribute("aria-selected",b.dataset.t===t));["resumo","melhores","produtos","caixa","compras","config"].forEach(x=>$("t-"+x).hidden=x!==t);if(t==="config"){fixedDraft=[];renderConfig()} Object.values(charts).forEach(c=>c.resize())}
+function setTab(t){tab=t;document.querySelectorAll(".tabs button").forEach(b=>b.setAttribute("aria-selected",b.dataset.t===t));["resumo","melhores","produtos","caixa","compras","equipe","config"].forEach(x=>$("t-"+x).hidden=x!==t);if(t==="config"){fixedDraft=[];renderConfig()} if(t==="equipe")loadWeek(); Object.values(charts).forEach(c=>c.resize())}
 document.querySelector(".tabs").addEventListener("click",e=>{const b=e.target.closest("button[data-t]");if(b)setTab(b.dataset.t)});
 $("periodBtns").addEventListener("click",e=>{const b=e.target.closest("button[data-p]");if(!b)return;period=b.dataset.p;load()});
 $("prevP").onclick=()=>{shift(-1);load()}; $("nextP").onclick=()=>{shift(1);load()};
@@ -909,7 +1070,7 @@ $("logout").addEventListener("click",()=>be&&be.signOut());
   be.onAuth(async u=>{
     if(!u){$("appView").hidden=true;$("loginView").hidden=false;return}
     $("loginView").hidden=true;$("appView").hidden=false;$("lPass").value="";
-    try{const [m,c]=await Promise.all([be.getDoc("config/cardapio").catch(()=>null),be.getDoc("config/financeiro").catch(()=>null)]);
+    try{const [m,c,tm]=await Promise.all([be.getDoc("config/cardapio").catch(()=>null),be.getDoc("config/financeiro").catch(()=>null),be.getDoc("config/equipe").catch(()=>null)]); TEAM=tm;
       if(m&&Array.isArray(m.cats))MENU=m; CFG=Object.assign(JSON.parse(JSON.stringify(DEFAULT_CFG)),c||{}); if(!CFG.custos)CFG.custos={};}
     catch(e){CFG=JSON.parse(JSON.stringify(DEFAULT_CFG))}
     load();
