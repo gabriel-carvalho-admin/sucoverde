@@ -143,6 +143,28 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
 
 .autowa{display:flex;gap:8px;align-items:center;font-weight:700;color:var(--bark);font-size:.9rem;margin:0 0 10px;cursor:pointer}
 .autowa input{width:18px;height:18px;accent-color:var(--leaf)}
+.ad-cathead{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-top:18px}
+.ad-cathead .ad-cat{margin:0 0 6px}
+.ad-cbtns{display:flex;gap:6px;margin-bottom:6px}
+.ad-cbtns .btn{font-size:.85rem;padding:6px 10px}
+.ad-row .x{width:30px;height:30px;font-size:1rem;flex:none}
+.btn.sm{padding:4px 8px;font-size:.8rem}
+.ad-row.is-new{border-color:var(--lime);background:#f4f9ee}
+.newtag{background:var(--lime);color:#fff;border-radius:6px;padding:0 6px;font-size:.7rem;font-weight:800}
+.ad-d{display:block;color:var(--muted);font-weight:600;font-size:.78rem}
+.ad-form{background:#fff;border:2px solid var(--lime);border-radius:14px;padding:12px;margin:8px 0}
+.ad-form h4{margin:0 0 8px;color:var(--leaf)}
+.ad-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px}
+.ad-grid label{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:.88rem;color:var(--bark)}
+.ad-grid label small{color:var(--muted);font-weight:600}
+.ad-grid .wide{grid-column:1/-1}
+.ad-grid select{font:inherit;border:1px solid var(--line);border-radius:12px;padding:10px;background:#fff}
+@media (max-width:560px){.ad-grid{grid-template-columns:1fr}}
+.ad-opts{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:10px;font-weight:700;font-size:.88rem}
+.ad-opts input{accent-color:var(--leaf);width:18px;height:18px;vertical-align:-3px}
+.ad-newcat{margin-top:16px}
+.ad-addsb{display:flex;gap:8px;margin-top:8px}
+.ad-addsb input{flex:1}
 .fhead h1 small a{color:var(--leaf);font-weight:800;text-decoration:none}
 .hbtns{display:flex;gap:6px}
 .filters{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin:6px 0}
@@ -1037,6 +1059,12 @@ $("cmpCsv").addEventListener("click",()=>{
 });
 
 /* ---------- configuração ---------- */
+async function refreshCfg(){
+  // busca de novo cardápio e custos, para pegar produtos criados no painel há pouco
+  try{const [m,c]=await Promise.all([be.getDoc("config/cardapio").catch(()=>null),be.getDoc("config/financeiro").catch(()=>null)]);
+    if(m&&Array.isArray(m.cats))MENU=m; if(c){CFG=Object.assign(JSON.parse(JSON.stringify(DEFAULT_CFG)),c);if(!CFG.custos)CFG.custos={}}
+    if(tab==="config"){fixedDraft=[];renderConfig()} recompute();}catch(e){}
+}
 function allNames(){
   const s=new Set();(MENU.cats||[]).forEach(c=>c.itens.forEach(i=>s.add(i.n)));
   ORDERS.forEach(o=>(o.itens||[]).forEach(i=>{s.add(i.n);(i.ex||[]).forEach(x=>s.add(x))}));
@@ -1126,7 +1154,7 @@ async function load(){
   try{const [a,b]=range();const [vd,o,c,x,eq]=await Promise.all([be.vendas?be.vendas(a,b).catch(()=>[]):Promise.resolve([]),loadOrders(a,b),be.compras(a,b).catch(()=>[]),be.caixa?be.caixa(a,b).catch(()=>[]):Promise.resolve([]),be.equipe?be.equipe(addDays(weekStart(a),-1),b).catch(()=>[]):Promise.resolve([])]); if(seq!==loadSeq)return; ORDERS=o; CAIXA=x; EQUIPE=eq; VENDAS=vd; COMPRAS=c.sort((x,y)=>(y.dia||"").localeCompare(x.dia||"")); note(""); recompute(); if(tab==="equipe"&&!wkDirty)loadWeek();}
   catch(err){if(seq!==loadSeq)return; note(err&&err.code==="permission-denied"?"Sua conta não tem acesso às vendas.":"Não consegui carregar as vendas. Confira a internet e tente de novo.")}
 }
-function setTab(t){tab=t;document.querySelectorAll(".tabs button").forEach(b=>b.setAttribute("aria-selected",b.dataset.t===t));["resumo","melhores","produtos","caixa","compras","equipe","config"].forEach(x=>$("t-"+x).hidden=x!==t);if(t==="config"){fixedDraft=[];renderConfig()} if(t==="equipe")loadWeek(); Object.values(charts).forEach(c=>c.resize())}
+function setTab(t){tab=t;document.querySelectorAll(".tabs button").forEach(b=>b.setAttribute("aria-selected",b.dataset.t===t));["resumo","melhores","produtos","caixa","compras","equipe","config"].forEach(x=>$("t-"+x).hidden=x!==t);if(t==="config"){fixedDraft=[];renderConfig();refreshCfg()} if(t==="equipe")loadWeek(); Object.values(charts).forEach(c=>c.resize())}
 document.querySelector(".tabs").addEventListener("click",e=>{const b=e.target.closest("button[data-t]");if(b)setTab(b.dataset.t)});
 $("periodBtns").addEventListener("click",e=>{const b=e.target.closest("button[data-p]");if(!b)return;period=b.dataset.p;load()});
 $("prevP").onclick=()=>{shift(-1);load()}; $("nextP").onclick=()=>{shift(1);load()};

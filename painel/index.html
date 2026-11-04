@@ -143,6 +143,28 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
 
 .autowa{display:flex;gap:8px;align-items:center;font-weight:700;color:var(--bark);font-size:.9rem;margin:0 0 10px;cursor:pointer}
 .autowa input{width:18px;height:18px;accent-color:var(--leaf)}
+.ad-cathead{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-top:18px}
+.ad-cathead .ad-cat{margin:0 0 6px}
+.ad-cbtns{display:flex;gap:6px;margin-bottom:6px}
+.ad-cbtns .btn{font-size:.85rem;padding:6px 10px}
+.ad-row .x{width:30px;height:30px;font-size:1rem;flex:none}
+.btn.sm{padding:4px 8px;font-size:.8rem}
+.ad-row.is-new{border-color:var(--lime);background:#f4f9ee}
+.newtag{background:var(--lime);color:#fff;border-radius:6px;padding:0 6px;font-size:.7rem;font-weight:800}
+.ad-d{display:block;color:var(--muted);font-weight:600;font-size:.78rem}
+.ad-form{background:#fff;border:2px solid var(--lime);border-radius:14px;padding:12px;margin:8px 0}
+.ad-form h4{margin:0 0 8px;color:var(--leaf)}
+.ad-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px}
+.ad-grid label{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:.88rem;color:var(--bark)}
+.ad-grid label small{color:var(--muted);font-weight:600}
+.ad-grid .wide{grid-column:1/-1}
+.ad-grid select{font:inherit;border:1px solid var(--line);border-radius:12px;padding:10px;background:#fff}
+@media (max-width:560px){.ad-grid{grid-template-columns:1fr}}
+.ad-opts{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:10px;font-weight:700;font-size:.88rem}
+.ad-opts input{accent-color:var(--leaf);width:18px;height:18px;vertical-align:-3px}
+.ad-newcat{margin-top:16px}
+.ad-addsb{display:flex;gap:8px;margin-top:8px}
+.ad-addsb input{flex:1}
 #printArea{display:none}
 @media print{
   @page{margin:3mm}
@@ -349,7 +371,8 @@ function backend(){
       add(d){return F.setDoc(F.doc(F.collection(db,"pedidos")),Object.assign({},d,{criado:F.serverTimestamp()}))},
       update(id,patch){return F.updateDoc(F.doc(db,"pedidos",id),patch)},
       watchMenu(cb){return F.onSnapshot(F.doc(db,"config","cardapio"),s=>cb(s.exists()?s.data():null),e=>console.warn(e))},
-      saveMenu(d){return F.setDoc(F.doc(db,"config","cardapio"),d)}
+      saveMenu(d){return F.setDoc(F.doc(db,"config","cardapio"),d)},
+      mergeCosts(m){return F.setDoc(F.doc(db,"config","financeiro"),{custos:m},{merge:true})}
     };
   })();
   return beP;
@@ -602,41 +625,123 @@ $("blSave").addEventListener("click",async()=>{
 });
 
 /* ---------- cardápio ---------- */
-let draft=null, menuDirty=false;
+let draft=null, menuDirty=false, newCosts={}, addOpen=null, delAskM=null;
+const slug=t=>String(t).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,40)||"cat";
+const priceStr=it=>it._raw!=null?it._raw:(+it.p).toFixed(2).replace(".",",");
+function allNamesDraft(){const s=new Set();draft.cats.forEach(c=>c.itens.forEach(i=>s.add(i.n.toLowerCase())));return s}
 function renderMenuEditor(){
   const s=draft;
   let h=`<label class="ad-row switch"><input type="checkbox" id="adPause" ${s.pausado?"checked":""}><span><b>Pausar pedidos pelo site</b><br><small>Use quando a cozinha estiver cheia ou faltar algo.</small></span></label>`;
   s.cats.forEach((c,ci)=>{
-    h+=`<h4 class="ad-cat">${esc(c.nome)}</h4><div class="ad-list">`;
+    h+=`<div class="ad-cathead"><h4 class="ad-cat">${esc(c.nome)}</h4><div class="ad-cbtns">
+      <button type="button" class="btn" data-addp="${ci}">+ Produto</button>
+      ${c.id==="complementos"?"":(delAskM==="c"+ci?`<button type="button" class="btn warn" data-delc="${ci}">Confirmar exclusão</button><button type="button" class="btn" data-keepm="1">Não</button>`:`<button type="button" class="btn warn" data-askc="${ci}" title="Excluir categoria">Excluir categoria</button>`)}
+    </div></div>`;
+    if(addOpen===ci) h+=addForm(ci);
+    h+=`<div class="ad-list">`;
     c.itens.forEach((it,ii)=>{
-      h+=`<div class="ad-row${it.off?" is-off":""}">
-        <label class="ad-av"><input type="checkbox" data-ci="${ci}" data-ii="${ii}" data-f="on" ${it.off?"":"checked"}><span>${esc(it.n)}</span></label>
-        <label class="ad-pr"><span class="sr">Preço de ${esc(it.n)}</span>R$ <input type="text" inputmode="decimal" data-ci="${ci}" data-ii="${ii}" data-f="p" value="${(+it.p).toFixed(2).replace(".",",")}"></label>
+      const k="i"+ci+"_"+ii;
+      h+=`<div class="ad-row${it.off?" is-off":""}${it._novo?" is-new":""}">
+        <label class="ad-av"><input type="checkbox" data-ci="${ci}" data-ii="${ii}" data-f="on" ${it.off?"":"checked"}><span>${esc(it.n)}${it._novo?' <small class="newtag">novo</small>':""}${it.d?`<small class="ad-d">${esc(it.d)}</small>`:""}</span></label>
+        <label class="ad-pr"><span class="sr">Preço de ${esc(it.n)}</span>R$ <input type="text" inputmode="decimal" data-ci="${ci}" data-ii="${ii}" data-f="p" value="${priceStr(it)}"></label>
+        ${delAskM===k?`<button type="button" class="btn warn sm" data-deli="${ci}_${ii}">Excluir?</button>`:`<button type="button" class="x" data-aski="${ci}_${ii}" aria-label="Excluir ${esc(it.n)}">×</button>`}
       </div>`;
     });
+    if(!c.itens.length) h+=`<p class="sub">Categoria sem produtos. Ela só aparece no site depois de ter produtos.</p>`;
     h+=`</div>`;
   });
-  h+=`<h4 class="ad-cat">Sabores de suco</h4><div class="ad-list">`+(s.sabores||[]).map((sb,k)=>`<div class="ad-row${sb.off?" is-off":""}"><label class="ad-av"><input type="checkbox" data-sb="${k}" ${sb.off?"":"checked"}><span>${esc(sb.n)}</span></label></div>`).join("")+`</div>`;
+  h+=`<div class="ad-newcat">${addOpen==="cat"?`<div class="ad-form"><h4>Nova categoria</h4>
+      <div class="ad-grid"><label>Nome<input type="text" id="ncName" placeholder="Ex.: Doces"></label><label>Frase abaixo do título <small>(opcional)</small><input type="text" id="ncSub" placeholder="Ex.: Feitos aqui"></label></div>
+      <p class="err" id="ncErr"></p><div class="row"><button type="button" class="btn solid" id="ncOk">Criar categoria</button><button type="button" class="btn" data-cancel="1">Cancelar</button></div></div>`
+    :`<button type="button" class="btn" id="ncOpen">+ Nova categoria</button>`}</div>`;
+  h+=`<h4 class="ad-cat">Sabores de suco</h4><div class="ad-list">`+(s.sabores||[]).map((sb,k)=>`<div class="ad-row${sb.off?" is-off":""}"><label class="ad-av"><input type="checkbox" data-sb="${k}" ${sb.off?"":"checked"}><span>${esc(sb.n)}</span></label><button type="button" class="x" data-delsb="${k}" aria-label="Excluir sabor ${esc(sb.n)}">×</button></div>`).join("")+`</div>
+    <div class="ad-addsb"><input type="text" id="nsName" placeholder="Novo sabor, ex.: Abacaxi" aria-label="Novo sabor"><button type="button" class="btn" id="nsOk">+ Sabor</button></div>`;
   $("menuBody").innerHTML=h;
 }
+function addForm(ci){
+  return `<div class="ad-form"><h4>Novo produto em ${esc(draft.cats[ci].nome)}</h4>
+    <div class="ad-grid">
+      <label>Nome<input type="text" id="npName" placeholder="Ex.: Tapioca de frango"></label>
+      <label>Preço de venda (R$)<input type="text" inputmode="decimal" id="npPrice" placeholder="Ex.: 12,00"></label>
+      <label class="wide">Descrição <small>(opcional)</small><input type="text" id="npDesc" placeholder="Ex.: frango, queijo e orégano"></label>
+      <label>Custo por unidade (R$) <small>(opcional)</small><input type="text" inputmode="decimal" id="npCost" placeholder="Vai para Custos e taxas"></label>
+      <label>Tipo<select id="npTipo"><option value="produto">Produto (CMV)</option><option value="servico">Serviço (CSV)</option></select></label>
+    </div>
+    <div class="ad-opts">
+      <label><input type="checkbox" id="npExtras"> Cliente pode adicionar complementos</label>
+      <label><input type="checkbox" id="npSabor"> Cliente escolhe o sabor do suco</label>
+      <label><input type="checkbox" id="npPick2"> Cliente escolhe 2 recheios</label>
+    </div>
+    <p class="err" id="npErr"></p>
+    <div class="row"><button type="button" class="btn solid" id="npOk" data-ci="${ci}">Adicionar produto</button><button type="button" class="btn" data-cancel="1">Cancelar</button></div>
+  </div>`;
+}
+function rerender(){const y=window.scrollY;renderMenuEditor();window.scrollTo(0,y)}
 $("menuBody").addEventListener("change",e=>{
-  const t=e.target; menuDirty=true; $("menuMsg").textContent="";
+  const t=e.target; if(t.closest(".ad-form")||t.id==="nsName") return;
+  menuDirty=true; $("menuMsg").textContent="";
   if(t.id==="adPause") draft.pausado=t.checked;
   else if(t.dataset.sb!==undefined){draft.sabores[+t.dataset.sb].off=!t.checked;t.closest(".ad-row").classList.toggle("is-off",!t.checked)}
   else if(t.dataset.f==="on"){draft.cats[+t.dataset.ci].itens[+t.dataset.ii].off=!t.checked;t.closest(".ad-row").classList.toggle("is-off",!t.checked)}
 });
-$("menuBody").addEventListener("input",()=>{menuDirty=true;$("menuMsg").textContent=""});
+$("menuBody").addEventListener("input",e=>{
+  const t=e.target; if(t.closest(".ad-form"))return;
+  if(t.dataset.f==="p"){draft.cats[+t.dataset.ci].itens[+t.dataset.ii]._raw=t.value;menuDirty=true;$("menuMsg").textContent=""}
+});
+$("menuBody").addEventListener("click",e=>{
+  const b=e.target.closest("button"); if(!b) return;
+  const d=b.dataset;
+  if(d.addp!==undefined){addOpen=+d.addp;delAskM=null;rerender();$("npName").focus();return}
+  if(d.cancel){addOpen=null;rerender();return}
+  if(b.id==="ncOpen"){addOpen="cat";rerender();$("ncName").focus();return}
+  if(b.id==="ncOk"){
+    const n=$("ncName").value.trim().replace(/^./,c=>c.toUpperCase());
+    if(!n){$("ncErr").textContent="Escreva o nome da categoria.";return}
+    if(draft.cats.some(c=>c.nome.toLowerCase()===n.toLowerCase())){$("ncErr").textContent="Já existe uma categoria com esse nome.";return}
+    let id=slug(n),k=2; while(draft.cats.some(c=>c.id===id)) id=slug(n)+"-"+(k++);
+    const c={id,nome:n,itens:[]}; const sub=$("ncSub").value.trim(); if(sub)c.sub=sub;
+    draft.cats.push(c); menuDirty=true; addOpen=draft.cats.length-1; rerender(); $("npName").focus(); return;
+  }
+  if(b.id==="npOk"){
+    const ci=+d.ci, n=$("npName").value.trim().replace(/^./,c=>c.toUpperCase()), p=money($("npPrice").value), cost=$("npCost").value.trim()?money($("npCost").value):null;
+    if(!n){$("npErr").textContent="Escreva o nome do produto.";return}
+    if(allNamesDraft().has(n.toLowerCase())){$("npErr").textContent="Já existe um produto com esse nome no cardápio.";return}
+    if(isNaN(p)||p<=0){$("npErr").textContent="Informe o preço de venda, como 12,00.";return}
+    if(cost!=null&&(isNaN(cost)||cost<0)){$("npErr").textContent="Confira o custo: use só números, como 4,50.";return}
+    const it={n,p:r2(p),_novo:true}; const ds=$("npDesc").value.trim(); if(ds)it.d=ds;
+    const o=[]; if($("npPick2").checked)o.push("pick2"); if($("npSabor").checked)o.push("sabor"); if($("npExtras").checked)o.push("extras"); if(o.length)it.o=o;
+    draft.cats[ci].itens.push(it);
+    if(cost!=null) newCosts[n]={custo:r2(cost),tipo:$("npTipo").value};
+    menuDirty=true; addOpen=null; rerender(); $("menuMsg").textContent="“"+n+"” adicionado. Toque em Salvar cardápio para publicar no site."; return;
+  }
+  if(d.askc!==undefined){delAskM="c"+d.askc;rerender();return}
+  if(d.delc!==undefined){draft.cats.splice(+d.delc,1);delAskM=null;addOpen=null;menuDirty=true;rerender();return}
+  if(d.aski){delAskM="i"+d.aski;rerender();return}
+  if(d.deli){const [ci,ii]=d.deli.split("_").map(Number);const it=draft.cats[ci].itens.splice(ii,1)[0];delete newCosts[it.n];delAskM=null;menuDirty=true;rerender();return}
+  if(d.keepm){delAskM=null;rerender();return}
+  if(d.delsb!==undefined){draft.sabores.splice(+d.delsb,1);menuDirty=true;rerender();return}
+  if(b.id==="nsOk"){const n=$("nsName").value.trim().replace(/^./,c=>c.toUpperCase());if(!n)return;if((draft.sabores||[]).some(x=>x.n.toLowerCase()===n.toLowerCase())){$("menuMsg").textContent="Esse sabor já existe.";return}(draft.sabores=draft.sabores||[]).push({n});menuDirty=true;rerender();return}
+});
+$("menuBody").addEventListener("keydown",e=>{if(e.key!=="Enter")return;const t=e.target;
+  if(t.closest(".ad-form")){e.preventDefault();const ok=t.closest(".ad-form").querySelector("#npOk,#ncOk");if(ok)ok.click()}
+  else if(t.id==="nsName"){e.preventDefault();$("nsOk").click()}});
 $("menuSave").addEventListener("click",async()=>{
   let bad=null;
-  document.querySelectorAll('#menuBody input[data-f="p"]').forEach(inp=>{
-    const v=money(inp.value), it=draft.cats[+inp.dataset.ci].itens[+inp.dataset.ii];
-    if(isNaN(v)||v<=0){inp.classList.add("bad");bad=bad||it.n}else{inp.classList.remove("bad");it.p=r2(v)}
-  });
+  draft.cats.forEach(c=>c.itens.forEach(it=>{if(it._raw!=null){const v=money(it._raw);if(isNaN(v)||v<=0)bad=bad||it.n;else{it.p=r2(v);delete it._raw}}}));
+  document.querySelectorAll('#menuBody input[data-f="p"]').forEach(inp=>{const it=draft.cats[+inp.dataset.ci].itens[+inp.dataset.ii];inp.classList.toggle("bad",bad===it.n)});
   if(bad){$("menuMsg").textContent="Confira o preço de "+bad+": use só números, como 12,50.";return}
+  const empty=draft.cats.filter(c=>!c.itens.length).map(c=>c.nome);
   const d=JSON.parse(JSON.stringify(draft));
-  d.cats.forEach(c=>c.itens.forEach(it=>{if(!it.off)delete it.off}));(d.sabores||[]).forEach(s=>{if(!s.off)delete s.off});
+  d.cats=d.cats.filter(c=>c.itens.length);
+  d.cats.forEach(c=>c.itens.forEach(it=>{if(!it.off)delete it.off;delete it._novo;delete it._raw}));(d.sabores||[]).forEach(s=>{if(!s.off)delete s.off});
   $("menuSave").disabled=true;$("menuSave").textContent="Salvando...";
-  try{await be.saveMenu(d);menuDirty=false;$("menuMsg").textContent="";$("menuSave").textContent="Salvo! O site já mostra as mudanças.";setTimeout(()=>{$("menuSave").textContent="Salvar cardápio"},2500)}
+  try{
+    await be.saveMenu(d);
+    if(Object.keys(newCosts).length) await be.mergeCosts(newCosts);
+    const nc=Object.keys(newCosts).length; newCosts={};
+    menuDirty=false; draft=JSON.parse(JSON.stringify(d)); renderMenuEditor();
+    $("menuMsg").textContent=(empty.length?"Categorias sem produtos não foram salvas: "+empty.join(", ")+". ":"")+(nc?"Custos enviados para Custos e taxas. ":"");
+    $("menuSave").textContent="Salvo! O site e o Financeiro já usam o cardápio novo.";setTimeout(()=>{$("menuSave").textContent="Salvar cardápio"},3000)}
   catch(err){$("menuMsg").textContent=writeErr(err);$("menuSave").textContent="Salvar cardápio"}
   $("menuSave").disabled=false;
 });
