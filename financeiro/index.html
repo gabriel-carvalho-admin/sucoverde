@@ -267,6 +267,33 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
 .avsrc{display:block;color:var(--muted);font-size:.7rem;font-weight:700}
 .tbl tr.missrow td{background:#fdf0dc}
 .tbl tr.missrow input{border-color:var(--sun)}
+
+.cfg-top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.live{display:inline-flex;align-items:center;gap:6px;font-weight:800;font-size:.8rem;color:var(--leaf);background:#eef6e6;border-radius:999px;padding:3px 10px}
+.live i{width:8px;height:8px;border-radius:50%;background:var(--lime)}
+#cfgSearch{width:220px;max-width:100%;font:inherit;border:1px solid var(--line);border-radius:10px;padding:7px 10px;background:#fff}
+.cgroup{border:1px solid var(--line);border-radius:14px;background:#fff;padding:10px 12px;margin-top:10px}
+.cgroup.warn{border-color:var(--sun);background:#fffaf2}
+.cg-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:4px}
+.cg-head h4{margin:0;font-family:var(--display);color:var(--bark);font-size:1.05rem}
+.cg-count{font-size:.78rem;font-weight:800;color:var(--sun);background:#fdf0dc;border-radius:999px;padding:1px 9px}
+.cg-count.ok{color:var(--leaf);background:#eef6e6}
+.cgroup.others summary{cursor:pointer;color:var(--bark)}
+.cgroup.others summary small{color:var(--muted)}
+.tbl.cfg td{vertical-align:middle}
+.tbl.cfg td:first-child{min-width:170px}
+.cin{display:inline-flex;align-items:center;gap:4px;color:var(--muted);font-weight:700}
+.cin input{width:84px !important;text-align:right;padding:6px 8px !important}
+.cin small{color:var(--muted)}
+.tbl.cfg select{font:inherit;font-size:.88rem;border:1px solid var(--line);border-radius:10px;padding:6px;background:#fff}
+.tbl.cfg tr.dirty td{background:#f4f9ee}
+.mg{display:inline-block;font-weight:800;border-radius:8px;padding:2px 8px;font-variant-numeric:tabular-nums}
+.mg.ok{background:#e3f1d6;color:var(--leaf)} .mg.mid{background:#fdf0dc;color:#9a4d07} .mg.low{background:#fbe3e1;color:var(--danger)} .mg.none{color:var(--muted)}
+.lu{display:block;color:var(--muted);font-size:.72rem;font-weight:700;margin-top:2px}
+.flag.gray{background:#eee3d4;color:var(--muted)}
+.dirty-note{margin:0 0 6px;font-weight:800;color:#9a4d07;font-size:.88rem}
+.tbl.cfg{table-layout:fixed;min-width:620px}
+.tbl.cfg th:nth-child(1){width:34%} .tbl.cfg th:nth-child(2){width:16%} .tbl.cfg th:nth-child(3){width:20%} .tbl.cfg th:nth-child(4){width:14%} .tbl.cfg th:nth-child(5){width:16%}
 </style>
 </head>
 <body>
@@ -498,11 +525,14 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
 
 <!-- CONFIG -->
 <section id="t-config" hidden>
-  <p class="sub">Esses números alimentam o CMV, o CSV, os lucros e o ponto de equilíbrio. Preencha uma vez e atualize quando os preços dos fornecedores mudarem.</p>
+  <div class="cfg-top">
+    <p class="sub">Os produtos e os preços de venda vêm <b>direto do cardápio do painel</b> e da venda avulsa, e se atualizam sozinhos. Aqui você só informa quanto custa fazer cada um.</p>
+    <span class="live"><i></i>ao vivo</span>
+  </div>
   <div class="box">
-    <h3>Custo de cada produto ou serviço</h3>
-    <p class="sub">Quanto custa fazer <b>uma unidade</b> (ingredientes, embalagem). Marque como <b>Serviço</b> o que não é mercadoria (ex.: encomenda, taxa de entrega). Produtos entram no CMV e serviços no CSV.</p>
-    <div class="tscroll"><table class="tbl cfg" id="cfgCosts"></table></div>
+    <div class="pe-top"><h3>Custo de cada produto</h3><input type="search" id="cfgSearch" placeholder="Buscar produto…" aria-label="Buscar produto"></div>
+    <p class="sub">Quanto custa fazer <b>uma unidade</b> (ingredientes e embalagem). Marque como <b>Serviço</b> o que não é mercadoria: produtos entram no CMV e serviços no CSV. Aperte Enter para ir ao próximo.</p>
+    <div id="cfgCosts"></div>
   </div>
   <div class="grid2">
     <div class="box">
@@ -521,10 +551,11 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
         <label>Máquina de cartão no fechamento (média) <span><input type="text" inputmode="decimal" id="rMaq" placeholder="auto"> %</span></label>
         <label>Imposto sobre o faturamento <span><input type="text" inputmode="decimal" id="rImp"> %</span></label>
       </div>
-      <p class="sub">No fechamento de caixa o cartão vem somado (débito + crédito). Se deixar a média em branco, uso a média entre débito e crédito. Imposto: use a alíquota do seu regime (no Simples Nacional, o contador informa a alíquota efetiva).</p>
+      <p class="sub">No fechamento de caixa o cartão vem somado (débito + crédito). Em branco, uso a média entre débito e crédito. Imposto: use a alíquota do seu regime (no Simples Nacional, o contador informa a alíquota efetiva).</p>
     </div>
   </div>
   <div class="ad-foot">
+    <p class="dirty-note" id="cfgDirty" hidden></p>
     <p class="err" id="cfgMsg"></p>
     <div class="row"><button type="button" class="btn solid big" id="cfgSave">Salvar custos e taxas</button></div>
   </div>
@@ -587,6 +618,7 @@ function backend(){
       async vendas(a,b){const s=await F.getDocs(F.query(F.collection(db,"vendas"),F.where("dia",">=",a),F.where("dia","<=",b)));return s.docs.map(d=>Object.assign({id:d.id},d.data({serverTimestamps:"estimate"})))},
       async caixa(a,b){const s=await F.getDocs(F.query(F.collection(db,"caixa"),F.where("dia",">=",a),F.where("dia","<=",b)));return s.docs.map(d=>d.data())},
       async compras(a,b){const s=await F.getDocs(F.query(F.collection(db,"compras"),F.where("dia",">=",a),F.where("dia","<=",b)));return s.docs.map(d=>Object.assign({id:d.id},d.data({serverTimestamps:"estimate"})))},
+      watch(path,cb){return F.onSnapshot(F.doc(db,...path.split("/")),s=>cb(s.exists()?s.data():null),e=>console.warn(e))},
       async getDoc(path){const s=await F.getDoc(F.doc(db,...path.split("/")));return s.exists()?s.data():null},
       setDoc(path,d){return F.setDoc(F.doc(db,...path.split("/")),d)}
     };
@@ -1063,14 +1095,22 @@ $("cmpCsv").addEventListener("click",()=>{
   download("suco-verde-compras_"+fileTag()+".csv",rows);
 });
 
-/* ---------- configuração ---------- */
-async function refreshCfg(){
-  // busca de novo cardápio, custos e produtos da venda avulsa, para pegar o que foi criado há pouco
-  try{const [m,c,av]=await Promise.all([be.getDoc("config/cardapio").catch(()=>null),be.getDoc("config/financeiro").catch(()=>null),be.getDoc("catalogo/vendas").catch(()=>null)]);
-    if(av&&av.itens)AVCAT=av.itens;
-    if(m&&Array.isArray(m.cats))MENU=m; if(c){CFG=Object.assign(JSON.parse(JSON.stringify(DEFAULT_CFG)),c);if(!CFG.custos)CFG.custos={}}
-    if(tab==="config"){fixedDraft=[];renderConfig()} recompute();}catch(e){}
+/* ---------- configuração (custos e taxas) ---------- */
+// Os produtos e preços vêm ao vivo do cardápio do painel e da venda avulsa.
+// O que você digita fica guardado em rascunho até salvar, mesmo que o cardápio mude enquanto isso.
+let costDraft={}, rateDraft=null, focusMissing=false, cfgFilter="";
+function refreshCfg(){ if(tab==="config") renderConfig(); }
+const UN={un:"un",kg:"kg",L:"L"};
+function avInfo(n){
+  let q=0,t=0,u="";
+  VENDAS.forEach(v=>(v.itens||[]).forEach(i=>{if(i.nome===n){q+=+i.qtd||0;t+=+i.total||0;u=i.unidade||u}}));
+  if(q>0) return {p:t/q,u:u||"un",src:"média das vendas avulsas do período"};
+  const c=Object.values(AVCAT).find(x=>x&&x.nome===n); if(c&&c.preco) return {p:+c.preco,u:c.unidade||"un",src:"última venda avulsa"};
+  return null;
 }
+function menuItem(n){for(const c of MENU.cats||[])for(const i of c.itens)if(i.n===n)return i;return null}
+function priceOf(n){const m=menuItem(n);if(m)return +m.p;const a=avInfo(n);return a?a.p:null}
+function unitOf(n){if(menuItem(n))return "";const a=avInfo(n);return a&&a.u!=="un"?a.u:""}
 function allNames(){
   const s=new Set();(MENU.cats||[]).forEach(c=>c.itens.forEach(i=>s.add(i.n)));
   ORDERS.forEach(o=>(o.itens||[]).forEach(i=>{s.add(i.n);(i.ex||[]).forEach(x=>s.add(x))}));
@@ -1079,49 +1119,75 @@ function allNames(){
   Object.keys(CFG.custos).forEach(n=>s.add(n));
   return [...s];
 }
-const UN={un:"un",kg:"kg",L:"L"};
-function avInfo(n){
-  // preço médio da venda avulsa no período; se não houver, o último preço lançado
-  let q=0,t=0,u="";
-  VENDAS.forEach(v=>(v.itens||[]).forEach(i=>{if(i.nome===n){q+=+i.qtd||0;t+=+i.total||0;u=i.unidade||u}}));
-  if(q>0) return {p:t/q,u:u||"un",src:"média das vendas avulsas do período"};
-  const c=Object.values(AVCAT).find(x=>x&&x.nome===n); if(c&&c.preco) return {p:+c.preco,u:c.unidade||"un",src:"última venda avulsa"};
-  return null;
+function costVal(n){const d=costDraft[n];if(d&&d.custo!=null)return d.custo;const c=CFG.custos[n];return c&&c.custo!=null?(+c.custo).toFixed(2).replace(".",","):""}
+function tipoVal(n){const d=costDraft[n];if(d&&d.tipo)return d.tipo;const c=CFG.custos[n];return c&&c.tipo||"produto"}
+function marginCell(n){
+  const p=priceOf(n), c=num(costVal(n)); if(!p||isNaN(c)||costVal(n)==="") return `<span class="mg none">—</span>`;
+  const m=(p-c)/p, cls=m>=0.5?"ok":m>=0.25?"mid":"low";
+  return `<span class="mg ${cls}">${pct(m)}</span><small class="lu">${brl(p-c)} por ${unitOf(n)||"un"}</small>`;
 }
-function priceOf(n){for(const c of MENU.cats||[])for(const i of c.itens)if(i.n===n)return +i.p;const a=avInfo(n);return a?a.p:null}
-function priceLabel(n){for(const c of MENU.cats||[])for(const i of c.itens)if(i.n===n)return brl(+i.p);const a=avInfo(n);return a?`${brl(a.p)}/${UN[a.u]||a.u}<small class="avsrc" title="${a.src}">venda avulsa</small>`:"—"}
-function unitOf(n){for(const c of MENU.cats||[])for(const i of c.itens)if(i.n===n)return "";const a=avInfo(n);return a&&a.u!=="un"?" por "+a.u:""}
-let focusMissing=false;
+function costRow(n){
+  const miss=STATS&&STATS.semCusto.includes(n), mi=menuItem(n), off=mi&&mi.off, u=unitOf(n);
+  const pr=priceOf(n), a=!mi&&avInfo(n);
+  const dirty=!!costDraft[n];
+  return `<tr class="${miss?"missrow":""}${dirty?" dirty":""}" data-n="${esc(n)}">
+    <td><b>${esc(n)}</b>${miss?' <span class="flag">falta custo</span>':""}${off?' <span class="flag gray">esgotado</span>':""}${mi&&mi.d?`<small class="ad-d">${esc(mi.d)}</small>`:""}</td>
+    <td class="num">${pr!=null?brl(pr)+(u?"/"+u:""):"—"}${a?`<small class="avsrc" title="${esc(a.src)}">venda avulsa</small>`:""}</td>
+    <td class="num"><span class="cin">R$ <input type="text" inputmode="decimal" data-f="custo" value="${esc(costVal(n))}" placeholder="0,00" aria-label="Custo de ${esc(n)}">${u?`<small>/${u}</small>`:""}</span></td>
+    <td><select data-f="tipo" aria-label="Tipo de ${esc(n)}"><option value="produto"${tipoVal(n)!=="servico"?" selected":""}>Produto</option><option value="servico"${tipoVal(n)==="servico"?" selected":""}>Serviço</option></select></td>
+    <td class="num mcell">${marginCell(n)}</td></tr>`;
+}
+let pendingCfg=false;
 function renderConfig(){
-  const miss=new Set(STATS?STATS.semCusto:[]);
-  const names=allNames().sort((a,b)=>(miss.has(b)?1:0)-(miss.has(a)?1:0));
-  $("cfgCosts").innerHTML=`<thead><tr><th>Produto ou serviço</th><th class="num">Preço de venda</th><th>Tipo</th><th class="num">Custo por unidade</th><th class="num">Margem</th></tr></thead><tbody>`+
-    names.map((n,k)=>{const c=CFG.custos[n]||{},p=priceOf(n),cu=c.custo!=null?c.custo:"";const m=p&&cu!==""?(p-cu)/p:NaN;
-      return `<tr${miss.has(n)?' class="missrow"':""}><td>${esc(n)}${miss.has(n)?' <span class="flag">falta custo</span>':""}</td><td class="num">${priceLabel(n)}</td>
-      <td><select data-k="${k}" data-f="tipo" aria-label="Tipo de ${esc(n)}"><option value="produto"${c.tipo!=="servico"?" selected":""}>Produto</option><option value="servico"${c.tipo==="servico"?" selected":""}>Serviço</option></select></td>
-      <td class="num">R$ <input type="text" inputmode="decimal" data-k="${k}" data-f="custo" value="${cu===""?"":(+cu).toFixed(2).replace(".",",")}" placeholder="0,00" aria-label="Custo de ${esc(n)}">${esc(unitOf(n))}</td>
-      <td class="num" data-m="${k}">${pct(m)}</td></tr>`}).join("")+"</tbody>";
-  $("cfgCosts").dataset.names=JSON.stringify(names);
+  const ae=document.activeElement; if(ae&&ae.closest&&ae.closest("#cfgCosts")&&ae.dataset.f){pendingCfg=true;return}  // não atrapalha quem está digitando
+  pendingCfg=false;
+  const names=new Set(allNames()), used=new Set(), q=cfgFilter.trim().toLowerCase();
+  const match=n=>!q||n.toLowerCase().includes(q);
+  const head=`<thead><tr><th>Produto</th><th class="num">Preço de venda</th><th class="num">Custo por unidade</th><th>Tipo</th><th class="num">Margem</th></tr></thead>`;
+  const group=(title,list,extra="")=>{const l=list.filter(match);if(!l.length)return "";const done=l.filter(n=>costVal(n)!=="").length;
+    return `<div class="cgroup"><div class="cg-head"><h4>${esc(title)}</h4><span class="cg-count ${done===l.length?"ok":""}">${done} de ${l.length} com custo</span></div>${extra}<div class="tscroll"><table class="tbl cfg">${head}<tbody>${l.map(costRow).join("")}</tbody></table></div></div>`};
+  let h="";
+  const missing=STATS?STATS.semCusto.filter(n=>names.has(n)):[];
+  if(missing.length&&!q) h+=`<div class="cgroup warn"><div class="cg-head"><h4>Faltando custo (vendidos no período)</h4><span class="cg-count">${missing.length}</span></div><div class="tscroll"><table class="tbl cfg">${head}<tbody>${missing.map(costRow).join("")}</tbody></table></div></div>`;
+  (MENU.cats||[]).forEach(c=>{const l=c.itens.map(i=>i.n);l.forEach(n=>used.add(n));h+=group(c.nome,l)});
+  const av=[...names].filter(n=>!used.has(n)&&(VENDAS.some(v=>(v.itens||[]).some(i=>i.nome===n))||Object.values(AVCAT).some(x=>x&&x.nome===n)));
+  av.forEach(n=>used.add(n)); h+=group("Venda avulsa",av,`<p class="sub">Produtos vendidos na página Venda avulsa que não estão no cardápio. O custo é por unidade de venda (un, kg ou L).</p>`);
+  const others=[...names].filter(n=>!used.has(n)&&match(n));
+  if(others.length) h+=`<details class="cgroup others"${q?" open":""}><summary><b>Outros itens</b> <span class="cg-count">${others.length}</span> <small>(saíram do cardápio ou só aparecem em pedidos antigos)</small></summary><div class="tscroll"><table class="tbl cfg">${head}<tbody>${others.map(costRow).join("")}</tbody></table></div></details>`;
+  if(!h) h=`<p class="empty">Nenhum produto encontrado para “${esc(cfgFilter)}”.</p>`;
+  $("cfgCosts").innerHTML=h;
   renderFixed();
-  const t=CFG.taxas||{};const f=v=>(+v||0).toString().replace(".",",");
-  if(focusMissing){setTimeout(()=>{const r=document.querySelector("#cfgCosts tr.missrow input[data-f=custo]");if(r){r.scrollIntoView({block:"center",behavior:"smooth"});r.focus({preventScroll:true})}},150)}
-  $("rDeb").value=f(t.debito);$("rCred").value=f(t.credito);$("rPix").value=f(t.pix);$("rMaq").value=t.maquina==null?"":f(t.maquina);$("rImp").value=f(CFG.imposto);
+  const t=CFG.taxas||{};const fz=v=>(+v||0).toString().replace(".",",");
+  const R=rateDraft||{rDeb:fz(t.debito),rCred:fz(t.credito),rPix:fz(t.pix),rMaq:t.maquina==null?"":fz(t.maquina),rImp:fz(CFG.imposto)};
+  Object.entries(R).forEach(([id,v])=>{if(document.activeElement!==$(id))$(id).value=v});
+  const nd=Object.keys(costDraft).length; $("cfgDirty").hidden=!nd&&!rateDraft&&!fixedDirty; $("cfgDirty").textContent=nd?nd+(nd===1?" custo alterado":" custos alterados")+" ainda não salvo"+(nd===1?"":"s"):"Alterações ainda não salvas";
+  if(focusMissing){setTimeout(()=>{const r=document.querySelector("#cfgCosts tr.missrow input[data-f=custo]");if(r){r.scrollIntoView({block:"center",behavior:"smooth"});r.focus({preventScroll:true})}focusMissing=false},150)}
 }
-let fixedDraft=[];
+$("cfgCosts").addEventListener("focusout",()=>setTimeout(()=>{const ae=document.activeElement;if(pendingCfg&&!(ae&&ae.closest&&ae.closest("#cfgCosts")))renderConfig()},0));
+$("cfgSearch").addEventListener("input",e=>{cfgFilter=e.target.value;renderConfig();$("cfgSearch").focus()});
+let fixedDraft=[], fixedDirty=false;
 function renderFixed(){
   if(!fixedDraft.length) fixedDraft=JSON.parse(JSON.stringify(CFG.fixos||[]));
-  $("cfgFixed").innerHTML=fixedDraft.map((f,i)=>`<div class="fx"><input type="text" data-i="${i}" data-f="nome" value="${esc(f.nome)}" aria-label="Nome do custo fixo"><span>R$ <input type="text" inputmode="decimal" data-i="${i}" data-f="valor" value="${(+f.valor||0).toFixed(2).replace(".",",")}" aria-label="Valor de ${esc(f.nome)}"></span><button type="button" class="x" data-rm="${i}" aria-label="Remover ${esc(f.nome)}">×</button></div>`).join("");
+  if(document.activeElement&&document.activeElement.closest&&document.activeElement.closest("#cfgFixed")) return;
+  $("cfgFixed").innerHTML=fixedDraft.map((f,i)=>`<div class="fx"><input type="text" data-i="${i}" data-f="nome" value="${esc(f.nome)}" aria-label="Nome do custo fixo"><span>R$ <input type="text" inputmode="decimal" data-i="${i}" data-f="valor" value="${typeof f.valor==="string"?esc(f.valor):(+f.valor||0).toFixed(2).replace(".",",")}" aria-label="Valor de ${esc(f.nome)}"></span><button type="button" class="x" data-rm="${i}" aria-label="Remover ${esc(f.nome)}">×</button></div>`).join("");
   $("fixedTotal").textContent=brl(fixedDraft.reduce((a,f)=>a+(num(f.valor)||0),0));
 }
-$("cfgFixed").addEventListener("input",e=>{const t=e.target;if(t.dataset.i===undefined)return;fixedDraft[+t.dataset.i][t.dataset.f]=t.dataset.f==="valor"?t.value:t.value;$("fixedTotal").textContent=brl(fixedDraft.reduce((a,f)=>a+(num(f.valor)||0),0))});
-$("cfgFixed").addEventListener("click",e=>{const b=e.target.closest("[data-rm]");if(!b)return;fixedDraft.splice(+b.dataset.rm,1);if(!fixedDraft.length)fixedDraft.push({nome:"",valor:0});renderFixed()});
-$("addFixed").addEventListener("click",()=>{fixedDraft.push({nome:"",valor:0});renderFixed();const ins=$("cfgFixed").querySelectorAll('input[data-f="nome"]');ins[ins.length-1].focus()});
-$("cfgCosts").addEventListener("input",e=>{const t=e.target;if(t.dataset.f!=="custo")return;const names=JSON.parse($("cfgCosts").dataset.names);const n=names[+t.dataset.k],p=priceOf(n),c=num(t.value);$("cfgCosts").querySelector(`[data-m="${t.dataset.k}"]`).textContent=p&&!isNaN(c)?pct((p-c)/p):"—"});
+function markDirty(){const nd=Object.keys(costDraft).length;$("cfgDirty").hidden=!nd&&!rateDraft&&!fixedDirty;$("cfgDirty").textContent=nd?nd+(nd===1?" custo alterado":" custos alterados")+" ainda não salvo"+(nd===1?"":"s"):"Alterações ainda não salvas";$("cfgMsg").textContent=""}
+$("cfgFixed").addEventListener("input",e=>{const t=e.target;if(t.dataset.i===undefined)return;fixedDraft[+t.dataset.i][t.dataset.f]=t.value;fixedDirty=true;markDirty();$("fixedTotal").textContent=brl(fixedDraft.reduce((a,f)=>a+(num(f.valor)||0),0))});
+$("cfgFixed").addEventListener("click",e=>{const b=e.target.closest("[data-rm]");if(!b)return;fixedDraft.splice(+b.dataset.rm,1);if(!fixedDraft.length)fixedDraft.push({nome:"",valor:0});fixedDirty=true;markDirty();renderFixed()});
+$("addFixed").addEventListener("click",()=>{fixedDraft.push({nome:"",valor:0});fixedDirty=true;renderFixed();const ins=$("cfgFixed").querySelectorAll('input[data-f="nome"]');ins[ins.length-1].focus()});
+["rDeb","rCred","rPix","rMaq","rImp"].forEach(id=>$(id).addEventListener("input",()=>{rateDraft={};["rDeb","rCred","rPix","rMaq","rImp"].forEach(k=>rateDraft[k]=$(k).value);markDirty()}));
+$("cfgCosts").addEventListener("input",e=>{const t=e.target;if(t.dataset.f!=="custo")return;const tr=t.closest("tr"),n=tr.dataset.n;
+  costDraft[n]=Object.assign({},costDraft[n]||{},{custo:t.value,tipo:tipoVal(n)});tr.classList.add("dirty");
+  document.querySelectorAll(`#cfgCosts tr[data-n="${CSS.escape(n)}"]`).forEach(r=>{r.querySelector(".mcell").innerHTML=marginCell(n);if(r!==tr)r.querySelector("input[data-f=custo]").value=t.value});markDirty()});
+$("cfgCosts").addEventListener("change",e=>{const t=e.target;if(t.dataset.f!=="tipo")return;const n=t.closest("tr").dataset.n;costDraft[n]=Object.assign({},costDraft[n]||{},{custo:costVal(n),tipo:t.value});markDirty()});
+$("cfgCosts").addEventListener("keydown",e=>{if(e.key!=="Enter"||e.target.dataset.f!=="custo")return;e.preventDefault();const ins=[...document.querySelectorAll("#cfgCosts input[data-f=custo]")];const i=ins.indexOf(e.target);if(ins[i+1])ins[i+1].focus()});
 $("cfgSave").addEventListener("click",async()=>{
-  const names=JSON.parse($("cfgCosts").dataset.names), custos={}; let bad=null;
-  names.forEach((n,k)=>{const ci=$("cfgCosts").querySelector(`input[data-k="${k}"]`),ti=$("cfgCosts").querySelector(`select[data-k="${k}"]`);
-    const raw=ci.value.trim(); if(raw===""){if(ti.value==="servico")custos[n]={custo:0,tipo:"servico"};return}
-    const v=num(raw); if(isNaN(v)||v<0){bad=bad||n;ci.classList.add("bad");return} ci.classList.remove("bad"); custos[n]={custo:r2(v),tipo:ti.value}});
+  const custos=JSON.parse(JSON.stringify(CFG.custos||{})); let bad=null;
+  Object.entries(costDraft).forEach(([n,d])=>{const raw=String(d.custo==null?"":d.custo).trim();
+    if(raw===""){if(d.tipo==="servico")custos[n]={custo:0,tipo:"servico"};else delete custos[n];return}
+    const v=num(raw); if(isNaN(v)||v<0){bad=bad||n;return} custos[n]={custo:r2(v),tipo:d.tipo||"produto"}});
+  document.querySelectorAll("#cfgCosts tr[data-n]").forEach(r=>{const n=r.dataset.n,d=costDraft[n];r.querySelector("input[data-f=custo]").classList.toggle("bad",!!d&&bad===n)});
   const fixos=[];fixedDraft.forEach(f=>{const v=num(f.valor);if(String(f.nome).trim()||v>0){if(isNaN(v)||v<0)bad=bad||(f.nome||"custo fixo");else fixos.push({nome:String(f.nome).trim()||"Custo fixo",valor:r2(v)})}});
   const rate=id=>{const v=num($(id).value);return isNaN(v)?0:v};
   const rates={debito:rate("rDeb"),credito:rate("rCred"),pix:rate("rPix"),maquina:$("rMaq").value.trim()===""?null:rate("rMaq")}, imposto=rate("rImp");
@@ -1129,10 +1195,11 @@ $("cfgSave").addEventListener("click",async()=>{
   if(bad){$("cfgMsg").textContent="Confira o valor de "+bad+". Use só números, como 3,50.";return}
   const d={custos,fixos,taxas:rates,imposto,atualizado:Date.now()};
   $("cfgSave").disabled=true;$("cfgSave").textContent="Salvando...";$("cfgMsg").textContent="";
-  try{await be.setDoc("config/financeiro",d);CFG=d;fixedDraft=[];$("cfgSave").textContent="Salvo!";focusMissing=false;setTimeout(()=>$("cfgSave").textContent="Salvar custos e taxas",2000);recompute()}
+  try{await be.setDoc("config/financeiro",d);CFG=d;costDraft={};rateDraft=null;fixedDraft=[];fixedDirty=false;$("cfgSave").textContent="Salvo!";setTimeout(()=>$("cfgSave").textContent="Salvar custos e taxas",2000);recompute()}
   catch(err){$("cfgMsg").textContent=err&&err.code==="permission-denied"?"Sua conta não tem permissão para alterar os custos.":"Não consegui salvar agora. Tente de novo.";$("cfgSave").textContent="Salvar custos e taxas"}
   $("cfgSave").disabled=false;
 });
+window.addEventListener("beforeunload",e=>{if(Object.keys(costDraft).length||rateDraft||fixedDirty){e.preventDefault();e.returnValue=""}});
 
 /* ---------- CSV ---------- */
 function download(name,rows){
@@ -1202,6 +1269,12 @@ $("logout").addEventListener("click",()=>be&&be.signOut());
       if(m&&Array.isArray(m.cats))MENU=m; CFG=Object.assign(JSON.parse(JSON.stringify(DEFAULT_CFG)),c||{}); if(!CFG.custos)CFG.custos={};}
     catch(e){CFG=JSON.parse(JSON.stringify(DEFAULT_CFG))}
     load();
+    // ao vivo: mudanças no cardápio do painel, nos custos e nos produtos da venda avulsa aparecem na hora
+    if(be.watch&&!window.__svWatch){window.__svWatch=true;
+      be.watch("config/cardapio",d=>{if(d&&Array.isArray(d.cats)){MENU=d;if(STATS)recompute()}});
+      be.watch("config/financeiro",d=>{if(d){CFG=Object.assign(JSON.parse(JSON.stringify(DEFAULT_CFG)),d);if(!CFG.custos)CFG.custos={};if(!fixedDirty)fixedDraft=[];if(STATS)recompute()}});
+      be.watch("catalogo/vendas",d=>{AVCAT=(d&&d.itens)||{};if(STATS&&tab==="config")renderConfig()});
+    }
   });
 })();
 })();
