@@ -265,6 +265,8 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
 .eq-res{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
 .dot{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:0}
 .avsrc{display:block;color:var(--muted);font-size:.7rem;font-weight:700}
+.tbl tr.missrow td{background:#fdf0dc}
+.tbl tr.missrow input{border-color:var(--sun)}
 </style>
 </head>
 <body>
@@ -694,7 +696,7 @@ function compute(orders){
     (v.itens||[]).forEach(i=>{const q=+i.qtd||0, it=+i.total||0, c=CFG.custos[i.nome];
       if((i.unidade||"un")==="un"&&c) add(i.nome,q,it);
       else if(c){const p=prod[i.nome]||(prod[i.nome]={n:i.nome,tipo:c.tipo||"produto",q:0,fat:0,custo:0,unit:+c.custo||0}); const cu=q*(+c.custo||0); p.q+=q; p.fat+=it; p.custo+=cu; if(c.tipo==="servico")csv+=cu; else cmv+=cu;}
-      else {const nm=i.nome+((i.unidade&&i.unidade!=="un")?" ("+i.unidade+")":""); const est=it*rCmv; const p=prod[nm]||(prod[nm]={n:nm,tipo:"produto",q:0,fat:0,custo:0,unit:0,est:true}); p.q+=q; p.fat+=it; p.custo+=est; cmv+=est; cmvEst+=est;}
+      else {const nm=i.nome+((i.unidade&&i.unidade!=="un")?" ("+i.unidade+")":""); const est=it*rCmv; const p=prod[nm]||(prod[nm]={n:nm,base:i.nome,tipo:"produto",q:0,fat:0,custo:0,unit:0,est:true}); p.q+=q; p.fat+=it; p.custo+=est; cmv+=est; cmvEst+=est;}
     });
   });
   if(avT>0) byOrig["Venda avulsa"]=avT;
@@ -707,8 +709,9 @@ function compute(orders){
   const mc=fat>0?lb/fat:NaN, pe=mc>0?fixedMonthly()/mc:NaN;
   Object.values(prod).forEach(p=>{p.lucro=p.fat-p.custo;p.margem=p.fat>0?p.lucro/p.fat:NaN});
   Object.keys(byPay).forEach(k=>{if(!(byPay[k]>0))delete byPay[k]});
-  const noCost=Object.values(prod).filter(p=>p.q>0&&!CFG.custos[p.n]).length;
-  return {site,avulsa,bancaTot:fat-site-avulsa,ok,fat,fatO,n:ok.length,ticket:ok.length?fatO/ok.length:0,imp,taxas,rl,cmv,csv,lb,cf,ll,mc,pe,prod,byPay,byOrig,noCost,banca,ajuste,equipe,equipeFonte,eqCaixa,diasCx,cmvEst,byDay};
+  const semCusto=[...new Set(Object.values(prod).filter(p=>p.q>0&&!CFG.custos[p.base||p.n]).map(p=>p.base||p.n))];
+  const noCost=semCusto.length;
+  return {site,avulsa,bancaTot:fat-site-avulsa,ok,fat,fatO,n:ok.length,ticket:ok.length?fatO/ok.length:0,imp,taxas,rl,cmv,csv,lb,cf,ll,mc,pe,prod,byPay,byOrig,noCost,semCusto,banca,ajuste,equipe,equipeFonte,eqCaixa,diasCx,cmvEst,byDay};
 }
 
 /* ---------- gráficos ---------- */
@@ -1088,17 +1091,20 @@ function avInfo(n){
 function priceOf(n){for(const c of MENU.cats||[])for(const i of c.itens)if(i.n===n)return +i.p;const a=avInfo(n);return a?a.p:null}
 function priceLabel(n){for(const c of MENU.cats||[])for(const i of c.itens)if(i.n===n)return brl(+i.p);const a=avInfo(n);return a?`${brl(a.p)}/${UN[a.u]||a.u}<small class="avsrc" title="${a.src}">venda avulsa</small>`:"—"}
 function unitOf(n){for(const c of MENU.cats||[])for(const i of c.itens)if(i.n===n)return "";const a=avInfo(n);return a&&a.u!=="un"?" por "+a.u:""}
+let focusMissing=false;
 function renderConfig(){
-  const names=allNames();
+  const miss=new Set(STATS?STATS.semCusto:[]);
+  const names=allNames().sort((a,b)=>(miss.has(b)?1:0)-(miss.has(a)?1:0));
   $("cfgCosts").innerHTML=`<thead><tr><th>Produto ou serviço</th><th class="num">Preço de venda</th><th>Tipo</th><th class="num">Custo por unidade</th><th class="num">Margem</th></tr></thead><tbody>`+
     names.map((n,k)=>{const c=CFG.custos[n]||{},p=priceOf(n),cu=c.custo!=null?c.custo:"";const m=p&&cu!==""?(p-cu)/p:NaN;
-      return `<tr><td>${esc(n)}</td><td class="num">${priceLabel(n)}</td>
+      return `<tr${miss.has(n)?' class="missrow"':""}><td>${esc(n)}${miss.has(n)?' <span class="flag">falta custo</span>':""}</td><td class="num">${priceLabel(n)}</td>
       <td><select data-k="${k}" data-f="tipo" aria-label="Tipo de ${esc(n)}"><option value="produto"${c.tipo!=="servico"?" selected":""}>Produto</option><option value="servico"${c.tipo==="servico"?" selected":""}>Serviço</option></select></td>
       <td class="num">R$ <input type="text" inputmode="decimal" data-k="${k}" data-f="custo" value="${cu===""?"":(+cu).toFixed(2).replace(".",",")}" placeholder="0,00" aria-label="Custo de ${esc(n)}">${esc(unitOf(n))}</td>
       <td class="num" data-m="${k}">${pct(m)}</td></tr>`}).join("")+"</tbody>";
   $("cfgCosts").dataset.names=JSON.stringify(names);
   renderFixed();
   const t=CFG.taxas||{};const f=v=>(+v||0).toString().replace(".",",");
+  if(focusMissing){setTimeout(()=>{const r=document.querySelector("#cfgCosts tr.missrow input[data-f=custo]");if(r){r.scrollIntoView({block:"center",behavior:"smooth"});r.focus({preventScroll:true})}},150)}
   $("rDeb").value=f(t.debito);$("rCred").value=f(t.credito);$("rPix").value=f(t.pix);$("rMaq").value=t.maquina==null?"":f(t.maquina);$("rImp").value=f(CFG.imposto);
 }
 let fixedDraft=[];
@@ -1123,7 +1129,7 @@ $("cfgSave").addEventListener("click",async()=>{
   if(bad){$("cfgMsg").textContent="Confira o valor de "+bad+". Use só números, como 3,50.";return}
   const d={custos,fixos,taxas:rates,imposto,atualizado:Date.now()};
   $("cfgSave").disabled=true;$("cfgSave").textContent="Salvando...";$("cfgMsg").textContent="";
-  try{await be.setDoc("config/financeiro",d);CFG=d;fixedDraft=[];$("cfgSave").textContent="Salvo!";setTimeout(()=>$("cfgSave").textContent="Salvar custos e taxas",2000);recompute()}
+  try{await be.setDoc("config/financeiro",d);CFG=d;fixedDraft=[];$("cfgSave").textContent="Salvo!";focusMissing=false;setTimeout(()=>$("cfgSave").textContent="Salvar custos e taxas",2000);recompute()}
   catch(err){$("cfgMsg").textContent=err&&err.code==="permission-denied"?"Sua conta não tem permissão para alterar os custos.":"Não consegui salvar agora. Tente de novo.";$("cfgSave").textContent="Salvar custos e taxas"}
   $("cfgSave").disabled=false;
 });
@@ -1152,8 +1158,9 @@ function exportDre(){
 function recompute(){
   STATS=compute(ORDERS);
   $("costWarn").hidden=!STATS.noCost;
-  $("costWarn").innerHTML=STATS.noCost?`${STATS.noCost} ${STATS.noCost===1?"item vendido está":"itens vendidos estão"} sem custo cadastrado, então o CMV e os lucros aparecem maiores do que são. <button type="button" class="linkbtn" id="goCfg">Cadastrar custos</button>`:"";
-  if($("goCfg")) $("goCfg").onclick=()=>setTab("config");
+  const lista=STATS.semCusto.slice(0,4).map(esc).join(", ")+(STATS.semCusto.length>4?" e mais "+(STATS.semCusto.length-4):"");
+  $("costWarn").innerHTML=STATS.noCost?`${STATS.noCost===1?"1 item vendido está":STATS.noCost+" itens vendidos estão"} sem custo cadastrado (<b>${lista}</b>), então o CMV e os lucros aparecem maiores do que são. <button type="button" class="linkbtn" id="goCfg">Cadastrar custos agora</button>`:"";
+  if($("goCfg")) $("goCfg").onclick=()=>{focusMissing=true;setTab("config")};
   renderResumo(STATS); renderMelhores(STATS); renderProdutos(STATS); renderCompras(STATS); renderCaixa(); renderEquipeResumo();
   if(period==="ano"){
     const m=Array(12).fill(0);Object.entries(STATS.byDay).forEach(([d,v])=>{m[+d.slice(5,7)-1]+=v});
