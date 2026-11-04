@@ -264,6 +264,7 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
 @media (max-width:760px){.tiles.eight{grid-template-columns:repeat(2,1fr)}}
 .eq-res{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
 .dot{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:0}
+.avsrc{display:block;color:var(--muted);font-size:.7rem;font-weight:700}
 </style>
 </head>
 <body>
@@ -619,7 +620,7 @@ async function loadOrders(a,b){
 
 /* ---------- estado ---------- */
 let period="mes", anchor=tzDate(new Date()), tab="resumo";
-let MENU=DEFAULT_MENU, CFG=null, ORDERS=[], STATS=null, YEARMONTHS=null, COMPRAS=[], CAIXA=[], EQUIPE=[], TEAM=null, VENDAS=[];
+let MENU=DEFAULT_MENU, CFG=null, ORDERS=[], STATS=null, YEARMONTHS=null, COMPRAS=[], CAIXA=[], EQUIPE=[], TEAM=null, VENDAS=[], AVCAT={};
 const DEFAULT_CFG={custos:{},fixos:[{nome:"Aluguel",valor:0},{nome:"Energia",valor:0},{nome:"Água",valor:0},{nome:"Gás",valor:0},{nome:"Salários e encargos",valor:0},{nome:"Internet e telefone",valor:0},{nome:"Contador",valor:0}],taxas:{debito:0,credito:0,pix:0},imposto:0};
 function note(t){$("note").textContent=t||"";$("note").hidden=!t}
 
@@ -692,6 +693,7 @@ function compute(orders){
     taxas+=t*feeOf(v.pagamento); const k=v.pagamento||"Não informado"; byPay[k]=(byPay[k]||0)+t;
     (v.itens||[]).forEach(i=>{const q=+i.qtd||0, it=+i.total||0, c=CFG.custos[i.nome];
       if((i.unidade||"un")==="un"&&c) add(i.nome,q,it);
+      else if(c){const p=prod[i.nome]||(prod[i.nome]={n:i.nome,tipo:c.tipo||"produto",q:0,fat:0,custo:0,unit:+c.custo||0}); const cu=q*(+c.custo||0); p.q+=q; p.fat+=it; p.custo+=cu; if(c.tipo==="servico")csv+=cu; else cmv+=cu;}
       else {const nm=i.nome+((i.unidade&&i.unidade!=="un")?" ("+i.unidade+")":""); const est=it*rCmv; const p=prod[nm]||(prod[nm]={n:nm,tipo:"produto",q:0,fat:0,custo:0,unit:0,est:true}); p.q+=q; p.fat+=it; p.custo+=est; cmv+=est; cmvEst+=est;}
     });
   });
@@ -1060,25 +1062,39 @@ $("cmpCsv").addEventListener("click",()=>{
 
 /* ---------- configuração ---------- */
 async function refreshCfg(){
-  // busca de novo cardápio e custos, para pegar produtos criados no painel há pouco
-  try{const [m,c]=await Promise.all([be.getDoc("config/cardapio").catch(()=>null),be.getDoc("config/financeiro").catch(()=>null)]);
+  // busca de novo cardápio, custos e produtos da venda avulsa, para pegar o que foi criado há pouco
+  try{const [m,c,av]=await Promise.all([be.getDoc("config/cardapio").catch(()=>null),be.getDoc("config/financeiro").catch(()=>null),be.getDoc("catalogo/vendas").catch(()=>null)]);
+    if(av&&av.itens)AVCAT=av.itens;
     if(m&&Array.isArray(m.cats))MENU=m; if(c){CFG=Object.assign(JSON.parse(JSON.stringify(DEFAULT_CFG)),c);if(!CFG.custos)CFG.custos={}}
     if(tab==="config"){fixedDraft=[];renderConfig()} recompute();}catch(e){}
 }
 function allNames(){
   const s=new Set();(MENU.cats||[]).forEach(c=>c.itens.forEach(i=>s.add(i.n)));
   ORDERS.forEach(o=>(o.itens||[]).forEach(i=>{s.add(i.n);(i.ex||[]).forEach(x=>s.add(x))}));
+  VENDAS.forEach(v=>(v.itens||[]).forEach(i=>s.add(i.nome)));
+  Object.values(AVCAT).forEach(x=>x&&x.nome&&s.add(x.nome));
   Object.keys(CFG.custos).forEach(n=>s.add(n));
   return [...s];
 }
-function priceOf(n){for(const c of MENU.cats||[])for(const i of c.itens)if(i.n===n)return +i.p;return null}
+const UN={un:"un",kg:"kg",L:"L"};
+function avInfo(n){
+  // preço médio da venda avulsa no período; se não houver, o último preço lançado
+  let q=0,t=0,u="";
+  VENDAS.forEach(v=>(v.itens||[]).forEach(i=>{if(i.nome===n){q+=+i.qtd||0;t+=+i.total||0;u=i.unidade||u}}));
+  if(q>0) return {p:t/q,u:u||"un",src:"média das vendas avulsas do período"};
+  const c=Object.values(AVCAT).find(x=>x&&x.nome===n); if(c&&c.preco) return {p:+c.preco,u:c.unidade||"un",src:"última venda avulsa"};
+  return null;
+}
+function priceOf(n){for(const c of MENU.cats||[])for(const i of c.itens)if(i.n===n)return +i.p;const a=avInfo(n);return a?a.p:null}
+function priceLabel(n){for(const c of MENU.cats||[])for(const i of c.itens)if(i.n===n)return brl(+i.p);const a=avInfo(n);return a?`${brl(a.p)}/${UN[a.u]||a.u}<small class="avsrc" title="${a.src}">venda avulsa</small>`:"—"}
+function unitOf(n){for(const c of MENU.cats||[])for(const i of c.itens)if(i.n===n)return "";const a=avInfo(n);return a&&a.u!=="un"?" por "+a.u:""}
 function renderConfig(){
   const names=allNames();
   $("cfgCosts").innerHTML=`<thead><tr><th>Produto ou serviço</th><th class="num">Preço de venda</th><th>Tipo</th><th class="num">Custo por unidade</th><th class="num">Margem</th></tr></thead><tbody>`+
     names.map((n,k)=>{const c=CFG.custos[n]||{},p=priceOf(n),cu=c.custo!=null?c.custo:"";const m=p&&cu!==""?(p-cu)/p:NaN;
-      return `<tr><td>${esc(n)}</td><td class="num">${p!=null?brl(p):"—"}</td>
+      return `<tr><td>${esc(n)}</td><td class="num">${priceLabel(n)}</td>
       <td><select data-k="${k}" data-f="tipo" aria-label="Tipo de ${esc(n)}"><option value="produto"${c.tipo!=="servico"?" selected":""}>Produto</option><option value="servico"${c.tipo==="servico"?" selected":""}>Serviço</option></select></td>
-      <td class="num">R$ <input type="text" inputmode="decimal" data-k="${k}" data-f="custo" value="${cu===""?"":(+cu).toFixed(2).replace(".",",")}" placeholder="0,00" aria-label="Custo de ${esc(n)}"></td>
+      <td class="num">R$ <input type="text" inputmode="decimal" data-k="${k}" data-f="custo" value="${cu===""?"":(+cu).toFixed(2).replace(".",",")}" placeholder="0,00" aria-label="Custo de ${esc(n)}">${esc(unitOf(n))}</td>
       <td class="num" data-m="${k}">${pct(m)}</td></tr>`}).join("")+"</tbody>";
   $("cfgCosts").dataset.names=JSON.stringify(names);
   renderFixed();
@@ -1175,7 +1191,7 @@ $("logout").addEventListener("click",()=>be&&be.signOut());
   be.onAuth(async u=>{
     if(!u){$("appView").hidden=true;$("loginView").hidden=false;return}
     $("loginView").hidden=true;$("appView").hidden=false;$("lPass").value="";
-    try{const [m,c,tm]=await Promise.all([be.getDoc("config/cardapio").catch(()=>null),be.getDoc("config/financeiro").catch(()=>null),be.getDoc("config/equipe").catch(()=>null)]); TEAM=tm;
+    try{const [m,c,tm,av]=await Promise.all([be.getDoc("config/cardapio").catch(()=>null),be.getDoc("config/financeiro").catch(()=>null),be.getDoc("config/equipe").catch(()=>null),be.getDoc("catalogo/vendas").catch(()=>null)]); TEAM=tm; if(av&&av.itens)AVCAT=av.itens;
       if(m&&Array.isArray(m.cats))MENU=m; CFG=Object.assign(JSON.parse(JSON.stringify(DEFAULT_CFG)),c||{}); if(!CFG.custos)CFG.custos={};}
     catch(e){CFG=JSON.parse(JSON.stringify(DEFAULT_CFG))}
     load();
