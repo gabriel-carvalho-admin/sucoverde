@@ -303,6 +303,18 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
 .chips .chip{border:1px solid #d9cdbd;background:#fff;border-radius:999px;padding:6px 12px;font:inherit;font-size:.9rem;cursor:pointer;color:#52514e}
 .chips .chip.on{background:#eb6834;border-color:#eb6834;color:#fff}
 .chips.off,.sub.off{opacity:.45;pointer-events:none}
+
+.est-top{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.est-top>div{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.est-top span{display:block;font-size:.75rem;font-weight:800;text-transform:uppercase;color:var(--muted)}
+.est-top b{display:block;font-size:1.3rem;color:#1f6b2a;font-variant-numeric:tabular-nums}
+.est-top b.neg{color:var(--danger)}
+.est-top em{font-style:normal;font-size:.8rem;color:var(--muted)}
+.est-bars{display:flex;align-items:flex-end;gap:6px;height:90px;margin-top:12px}
+.est-bars div{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}
+.est-bars i{display:block;width:100%;max-width:28px;background:#1f6b2a;border-radius:4px 4px 0 0}
+.est-bars div:last-child i{background:#6cad2f}
+.est-bars span{font-size:.68rem;color:var(--muted);margin-top:3px}
 </style>
 </head>
 <body>
@@ -324,7 +336,7 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
 <div id="appView" hidden>
 <div class="wrap">
 <header class="fhead">
-  <h1>Financeiro Suco Verde<small><a href="../painel/">← Painel de pedidos</a> · <a href="../compras/">Lançar compra</a> · <a href="../caixa/">Fechar caixa</a> · <a href="../vendas/">Venda avulsa</a></small></h1>
+  <h1>Financeiro Suco Verde<small><a href="../painel/">← Painel de pedidos</a> · <a href="../compras/">Lançar compra</a> · <a href="../caixa/">Fechar caixa</a> · <a href="../vendas/">Venda avulsa</a> · <a href="../estoque/">Estoque</a></small></h1>
   <div class="hbtns">
     <button type="button" class="btn" id="btnCsv">Exportar CSV</button>
     <button type="button" class="btn" id="logout">Sair</button>
@@ -403,6 +415,10 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
     <p class="sub" id="eqResNote"></p>
   </div>
 
+  <div class="box">
+    <div class="pe-top"><h3>Estoque</h3><a class="btn" href="../estoque/" style="text-decoration:none">Abrir estoque</a></div>
+    <div id="estBody"></div>
+  </div>
   <div class="box">
     <h3>Demonstrativo do resultado (DRE)</h3>
     <table class="dre" id="dre"></table>
@@ -635,6 +651,8 @@ function backend(){
       async equipe(a,b){const s=await F.getDocs(F.query(F.collection(db,"equipe"),F.where("semana",">=",a),F.where("semana","<=",b)));return s.docs.map(d=>d.data())},
       async vendas(a,b){const s=await F.getDocs(F.query(F.collection(db,"vendas"),F.where("dia",">=",a),F.where("dia","<=",b)));return s.docs.map(d=>Object.assign({id:d.id},d.data({serverTimestamps:"estimate"})))},
       async caixa(a,b){const s=await F.getDocs(F.query(F.collection(db,"caixa"),F.where("dia",">=",a),F.where("dia","<=",b)));return s.docs.map(d=>d.data())},
+      async estoque(){const s=await F.getDocs(F.query(F.collection(db,"estoque"),F.orderBy("dia","desc"),F.limit(40)));return s.docs.map(d=>Object.assign({id:d.id},d.data()))},
+      async perdas(a,b){const s=await F.getDocs(F.query(F.collection(db,"perdas"),F.where("dia",">=",a),F.where("dia","<=",b)));return s.docs.map(d=>Object.assign({id:d.id},d.data()))},
       async compras(a,b){const s=await F.getDocs(F.query(F.collection(db,"compras"),F.where("dia",">=",a),F.where("dia","<=",b)));return s.docs.map(d=>Object.assign({id:d.id},d.data({serverTimestamps:"estimate"})))},
       watch(path,cb){return F.onSnapshot(F.doc(db,...path.split("/")),s=>cb(s.exists()?s.data():null),e=>console.warn(e))},
       async getDoc(path){const s=await F.getDoc(F.doc(db,...path.split("/")));return s.exists()?s.data():null},
@@ -672,7 +690,7 @@ async function loadOrders(a,b){
 
 /* ---------- estado ---------- */
 let period="mes", anchor=tzDate(new Date()), tab="resumo";
-let MENU=DEFAULT_MENU, CFG=null, ORDERS=[], STATS=null, YEARMONTHS=null, COMPRAS=[], CAIXA=[], EQUIPE=[], TEAM=null, VENDAS=[], AVCAT={};
+let MENU=DEFAULT_MENU, CFG=null, ORDERS=[], STATS=null, YEARMONTHS=null, COMPRAS=[], CAIXA=[], EQUIPE=[], TEAM=null, VENDAS=[], AVCAT={}, ESTQ=[], PERDAS=[];
 const DEFAULT_CFG={custos:{},fixos:[{nome:"Aluguel",valor:0},{nome:"Energia",valor:0},{nome:"Água",valor:0},{nome:"Gás",valor:0},{nome:"Salários e encargos",valor:0},{nome:"Internet e telefone",valor:0},{nome:"Contador",valor:0}],taxas:{debito:0,credito:0,pix:0},imposto:0};
 function note(t){$("note").textContent=t||"";$("note").hidden=!t}
 
@@ -710,6 +728,13 @@ function comprasSplit(){const d=new Set(despCats()),mc={},dc={};let merc=0,desp=
   COMPRAS.forEach(c=>{const its=c.itens||[];let soma=0;its.forEach(i=>{const v=+i.total||0;soma+=v;const k=i.categoria||"Sem categoria";if(d.has(k)){desp+=v;dc[k]=(dc[k]||0)+v}else{merc+=v;mc[k]=(mc[k]||0)+v}});
     const resto=(+c.total||0)-soma;if(Math.abs(resto)>0.004){merc+=resto;mc["Sem categoria"]=(mc["Sem categoria"]||0)+resto}});
   return {merc,desp,mc,dc}}
+function estoqueAjuste(){
+  const [a,b]=range(), ini=[...ESTQ].filter(c=>c.dia<a&&c.dia>=addDays(a,-7)).pop(), fim=[...ESTQ].filter(c=>c.dia>=a&&c.dia<=b).pop();
+  if(!ini||!fim)return null;
+  const d=new Set(despCats()); let vi=0,vf=0;
+  Object.entries(fim.itens||{}).forEach(([k,f])=>{const i=ini.itens&&ini.itens[k];if(!i||d.has(f.categoria||i.categoria))return;vi+=(+i.qtd||0)*(+i.preco||0);vf+=(+f.qtd||0)*(+f.preco||0)});
+  return {ini:ini.dia,fim:fim.dia,vi,vf,ajuste:vi-vf};
+}
 function menuRatio(){let p=0,c=0;(MENU.cats||[]).forEach(k=>{if(k.id==="complementos")return;(k.itens||[]).forEach(i=>{const x=CFG.custos[i.n];if(x&&(+i.p>0)&&x.tipo!=="servico"){p+=+i.p;c+=+x.custo||0}})});return p>0?c/p:0}
 function machineRate(){const t=CFG.taxas||{};if(t.maquina!=null&&t.maquina!=="")return (+t.maquina||0)/100;return ((+t.debito||0)+(+t.credito||0))/200}
 function compute(orders){
@@ -764,7 +789,7 @@ function compute(orders){
   let equipeFonte="caixa"; if(eqTab>0){equipe=eqTab;equipeFonte="equipe"}
   const imp=fat*((+CFG.imposto||0)/100);
   const cmvProd=cmv+csv, CS=comprasSplit(), viaCompras=cmvModo()==="compras"&&COMPRAS.length>0;
-  let despOp=0; if(viaCompras){cmv=CS.merc;csv=0;despOp=CS.desp}
+  let despOp=0, est=null; if(viaCompras){cmv=CS.merc;csv=0;despOp=CS.desp;est=estoqueAjuste();if(est)cmv+=est.ajuste}
   const rl=fat-imp-taxas, lb=rl-cmv-csv, cf=fixedMonthly()*fixedFactor(), ll=lb-despOp-equipe-cf;
   const peBase=fixedMonthly()+(equipe+despOp)/fixedFactor();
   const mc=fat>0?lb/fat:NaN, pe=mc>0?peBase/mc:NaN;
@@ -772,7 +797,7 @@ function compute(orders){
   Object.keys(byPay).forEach(k=>{if(!(byPay[k]>0))delete byPay[k]});
   const semCusto=[...new Set(Object.values(prod).filter(p=>p.q>0&&!CFG.custos[p.base||p.n]).map(p=>p.base||p.n))];
   const noCost=semCusto.length;
-  return {viaCompras,despOp,cmvProd,CS,peBase,site,avulsa,bancaTot:fat-site-avulsa,ok,fat,fatO,n:ok.length,ticket:ok.length?fatO/ok.length:0,imp,taxas,rl,cmv,csv,lb,cf,ll,mc,pe,prod,byPay,byOrig,noCost,semCusto,banca,ajuste,equipe,equipeFonte,eqCaixa,diasCx,cmvEst,byDay};
+  return {est,perdas:PERDAS.reduce((x,p)=>x+(+p.valor||0),0),viaCompras,despOp,cmvProd,CS,peBase,site,avulsa,bancaTot:fat-site-avulsa,ok,fat,fatO,n:ok.length,ticket:ok.length?fatO/ok.length:0,imp,taxas,rl,cmv,csv,lb,cf,ll,mc,pe,prod,byPay,byOrig,noCost,semCusto,banca,ajuste,equipe,equipeFonte,eqCaixa,diasCx,cmvEst,byDay};
 }
 
 /* ---------- gráficos ---------- */
@@ -834,6 +859,13 @@ function groupedCfg(labels,a,b,la,lb,c,lc){
 }
 
 /* ---------- desenho ---------- */
+function renderEstoqueBox(S){
+  const f=ESTQ.slice(-8), last=f[f.length-1], prev=f[f.length-2], val=c=>Object.values(c&&c.itens||{}).reduce((a,i)=>a+(+i.qtd||0)*(+i.preco||0),0);
+  if(!last){$("estBody").innerHTML=`<p class="sub">Nenhuma contagem de estoque ainda. Faça a primeira no sábado: o lucro fica mais exato porque o que sobra na prateleira deixa de contar como custo. <a href="../estoque/">Abrir o estoque</a></p>`;return}
+  const v=val(last), dv=prev?v-val(prev):null, mx=Math.max(...f.map(val))||1;
+  $("estBody").innerHTML=`<div class="est-top"><div><span>Valor em ${br(last.dia)}</span><b>${brl(v)}</b><em>${dv==null?"primeira contagem":(dv>=0?"+":"−")+brl(Math.abs(dv)).replace("R$ ","R$ ")+" desde "+br(prev.dia)}</em></div><div><span>Perdas no período</span><b class="${S.perdas?"neg":""}">${brl(S.perdas)}</b><em>${S.fat&&S.perdas?pct(S.perdas/S.fat)+" das vendas":"registradas na página Estoque"}</em></div></div>`+
+    (f.length>1?`<div class="est-bars">${f.map(c=>`<div title="${br(c.dia)}: ${brl(val(c))}"><i style="height:${Math.max(4,val(c)/mx*100)}%"></i><span>${br(c.dia)}</span></div>`).join("")}</div>`:"");
+}
 function renderResumo(S){
   const [a,b]=range();
   $("kFat").textContent=brl(S.fat);
@@ -880,14 +912,14 @@ function renderResumo(S){
   pie("cPay","lPay",S.byPay); pie("cOrig","lOrig",S.byOrig);
   // DRE
   const rows=[["Faturamento bruto",S.fat,"dre-tot"],["   Pedidos pelo site",S.site,"dre-det"],["   Vendido na banca",S.bancaTot,"dre-det"],...(S.avulsa?[["   Venda avulsa",S.avulsa,"dre-det"]]:[]),["(−) Impostos sobre vendas",-S.imp],["(−) Taxas de cartão e Pix",-S.taxas],["= Receita líquida",S.rl,"dre-sub"],
-    ...(S.viaCompras?[["(−) CMV – compras de mercadorias",-S.cmv],...Object.entries(S.CS.mc).sort((a,b)=>b[1]-a[1]).map(([k,v])=>["   "+esc(k),-v,"dre-det"])]:[["(−) CMV – custo das mercadorias vendidas",-S.cmv],["(−) CSV – custo dos serviços vendidos",-S.csv]]),["= Lucro bruto",S.lb,"dre-sub"],
+    ...(S.viaCompras?[["(−) CMV – compras de mercadorias",-S.cmv],...Object.entries(S.CS.mc).sort((a,b)=>b[1]-a[1]).map(([k,v])=>["   "+esc(k),-v,"dre-det"]),...(S.est?[["   "+(S.est.ajuste>=0?"Estoque diminuiu":"Estoque aumentou")+" ("+br(S.est.ini)+" → "+br(S.est.fim)+")",-S.est.ajuste,"dre-det"]]:[])]:[["(−) CMV – custo das mercadorias vendidas",-S.cmv],["(−) CSV – custo dos serviços vendidos",-S.csv]]),["= Lucro bruto",S.lb,"dre-sub"],
     ...(S.despOp?[["(−) Despesas operacionais (compras)",-S.despOp],...Object.entries(S.CS.dc).sort((a,b)=>b[1]-a[1]).map(([k,v])=>["   "+esc(k),-v,"dre-det"])]:[]),
     ...(S.equipe?[[S.equipeFonte==="equipe"?"(−) Equipe (diárias da aba Equipe)":"(−) Pagamentos à equipe (caixa)",-S.equipe]]:[]),["(−) Custos fixos do período",-S.cf],["= Lucro líquido",S.ll,"dre-tot"]];
   $("dre").innerHTML=rows.map(([k,v,c])=>`<tr class="${c||""}"><th scope="row">${k}</th><td class="${v<0&&c?"neg":""}">${brl(v)}</td><td class="pc">${S.fat&&c!=="dre-det"?pct(v/S.fat):""}</td></tr>`).join("")+
     `<tr><td colspan="3" class="dre-dl"><button type="button" class="btn" id="dreCsv">Baixar DRE em CSV</button></td></tr>`;
   $("dreCsv").onclick=exportDre;
   const ctot=COMPRAS.reduce((a,c)=>a+(+c.total||0),0);
-  $("dreNote").textContent=(S.viaCompras?"O CMV vem das compras de mercadorias lançadas no período; limpeza, gás e equipamentos entram como despesas (dá para mudar em Custos e taxas). Pelos custos cadastrados de cada produto, a margem bruta seria de "+pct(S.fat?(S.fat-S.imp-S.taxas-S.cmvProd)/S.fat:NaN)+"; se o lucro real ficar bem abaixo disso, há desperdício, estoque parado ou custo desatualizado. "+(period==="dia"?"No dia a dia o lucro oscila porque a compra entra no dia em que foi feita: confira na semana ou no mês. ":""):"")+(S.diasCx?"Dias com caixa fechado usam a venda bruta do caixa. "+(S.viaCompras?"":"O CMV das vendas sem registro no painel é estimado pela margem dos produtos"+(S.cmvEst?" ("+brl(S.cmvEst)+")":"")+". "):"Nenhum dia com caixa fechado: o faturamento vem só dos pedidos registrados. ")+(S.equipe?(S.equipeFonte==="equipe"?"A equipe usa as diárias lançadas na aba Equipe; ":"A equipe usa os pagamentos do fechamento de caixa (lance as diárias na aba Equipe para mais precisão); ")+"não repita salários nos custos fixos. ":"")+(ctot&&!S.viaCompras?"Compras lançadas no período: "+brl(ctot)+" (veja a aba Compras). ":"")+"Custos fixos: "+brl(fixedMonthly())+" por mês"+(period==="dia"?", divididos por "+WORKDAYS+" dias abertos.":period==="semana"?", proporcional a 6 dias abertos.":period==="ano"?" × 12 meses.":".");
+  $("dreNote").textContent=(S.viaCompras?(S.est?"O CMV usa as compras de mercadorias corrigidas pela contagem de estoque de "+br(S.est.ini)+" e "+br(S.est.fim)+": o que sobrou na prateleira não conta como custo. ":"O CMV vem das compras de mercadorias lançadas no período (com a contagem de estoque no sábado antes e dentro do período, o sistema desconta o que ficou guardado). ")+"Limpeza, gás e equipamentos entram como despesas (dá para mudar em Custos e taxas). Pelos custos cadastrados de cada produto, a margem bruta seria de "+pct(S.fat?(S.fat-S.imp-S.taxas-S.cmvProd)/S.fat:NaN)+"; se o lucro real ficar bem abaixo disso, há desperdício, estoque parado ou custo desatualizado. "+(period==="dia"?"No dia a dia o lucro oscila porque a compra entra no dia em que foi feita: confira na semana ou no mês. ":""):"")+(S.diasCx?"Dias com caixa fechado usam a venda bruta do caixa. "+(S.viaCompras?"":"O CMV das vendas sem registro no painel é estimado pela margem dos produtos"+(S.cmvEst?" ("+brl(S.cmvEst)+")":"")+". "):"Nenhum dia com caixa fechado: o faturamento vem só dos pedidos registrados. ")+(S.equipe?(S.equipeFonte==="equipe"?"A equipe usa as diárias lançadas na aba Equipe; ":"A equipe usa os pagamentos do fechamento de caixa (lance as diárias na aba Equipe para mais precisão); ")+"não repita salários nos custos fixos. ":"")+(ctot&&!S.viaCompras?"Compras lançadas no período: "+brl(ctot)+" (veja a aba Compras). ":"")+"Custos fixos: "+brl(fixedMonthly())+" por mês"+(period==="dia"?", divididos por "+WORKDAYS+" dias abertos.":period==="semana"?", proporcional a 6 dias abertos.":period==="ano"?" × 12 meses.":".");
   // compras e sobra de caixa
   const C=comprasStats(), sobra=S.fat-S.imp-S.taxas-C.tot-S.equipe-S.cf;
   $("kCompR").textContent=brl(C.tot); $("kCompRs").textContent=S.fat?pct(C.tot/S.fat)+" das vendas":(COMPRAS.length?COMPRAS.length+" compras":"nenhuma compra lançada");
@@ -896,7 +928,7 @@ function renderResumo(S){
   else{$("kSobraL").textContent="Sobra de caixa";$("kSobra").textContent=brl(sobra); $("kSobra").classList.toggle("neg",sobra<0); $("kSobraS").textContent="vendas − compras − taxas − equipe − fixos";}
   $("kEqR").textContent=brl(S.equipe); $("kEqRs").textContent=(S.fat?pct(S.equipe/S.fat)+" das vendas · ":"")+(S.equipeFonte==="equipe"?"diárias lançadas":S.equipe?"pagamentos do caixa":"nada lançado");
   $("kCfR").textContent=brl(S.cf); $("kCfRs").textContent=(S.fat?pct(S.cf/S.fat)+" das vendas · ":"")+(period==="mes"?"do mês":period==="ano"?"12 meses":"proporcional");
-  renderEquipeBox(S);
+  renderEquipeBox(S); renderEstoqueBox(S);
   const cats=Object.entries(C.byCat).sort((a,b)=>b[1]-a[1]);
   const cr=[["Faturamento bruto",S.fat,"dre-tot"],["(−) Impostos e taxas",-(S.imp+S.taxas)],["(−) Compras do período",-C.tot,"dre-sub"],...cats.map(([k,v])=>["   "+k,-v,"dre-det"]),
     ...(S.equipe?[[S.equipeFonte==="equipe"?"(−) Equipe (diárias)":"(−) Pagamentos à equipe (caixa)",-S.equipe]]:[]),["(−) Custos fixos do período",-S.cf],["= Sobra de caixa",sobra,"dre-tot"]];
@@ -1286,7 +1318,7 @@ async function load(){
   const seq=++loadSeq; if(!wkDirty){const [ra,rb]=range(),td=tzDate(new Date());wk=weekStart(td>=ra&&td<=rb?td:anchor)} $("perLabel").textContent=label();
   document.querySelectorAll("#periodBtns button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.p===period));
   note("Carregando vendas...");
-  try{const [a,b]=range();const [vd,o,c,x,eq]=await Promise.all([be.vendas?be.vendas(a,b).catch(()=>[]):Promise.resolve([]),loadOrders(a,b),be.compras(a,b).catch(()=>[]),be.caixa?be.caixa(a,b).catch(()=>[]):Promise.resolve([]),be.equipe?be.equipe(addDays(weekStart(a),-1),b).catch(()=>[]):Promise.resolve([])]); if(seq!==loadSeq)return; ORDERS=o; CAIXA=x; EQUIPE=eq; VENDAS=vd; COMPRAS=c.sort((x,y)=>(y.dia||"").localeCompare(x.dia||"")); note(""); recompute(); if(tab==="equipe"&&!wkDirty)loadWeek();}
+  try{const [a,b]=range();const [vd,o,c,x,eq,es,pd]=await Promise.all([be.vendas?be.vendas(a,b).catch(()=>[]):Promise.resolve([]),loadOrders(a,b),be.compras(a,b).catch(()=>[]),be.caixa?be.caixa(a,b).catch(()=>[]):Promise.resolve([]),be.equipe?be.equipe(addDays(weekStart(a),-1),b).catch(()=>[]):Promise.resolve([]),be.estoque?be.estoque().catch(()=>[]):Promise.resolve([]),be.perdas?be.perdas(a,b).catch(()=>[]):Promise.resolve([])]); if(seq!==loadSeq)return; ESTQ=(es||[]).filter(c=>c.status==="fechada").sort((x,y)=>x.dia.localeCompare(y.dia)); PERDAS=pd||[]; ORDERS=o; CAIXA=x; EQUIPE=eq; VENDAS=vd; COMPRAS=c.sort((x,y)=>(y.dia||"").localeCompare(x.dia||"")); note(""); recompute(); if(tab==="equipe"&&!wkDirty)loadWeek();}
   catch(err){if(seq!==loadSeq)return; note(err&&err.code==="permission-denied"?"Sua conta não tem acesso às vendas.":"Não consegui carregar as vendas. Confira a internet e tente de novo.")}
 }
 function setTab(t){tab=t;document.querySelectorAll(".tabs button").forEach(b=>b.setAttribute("aria-selected",b.dataset.t===t));["resumo","melhores","produtos","caixa","compras","equipe","config"].forEach(x=>$("t-"+x).hidden=x!==t);if(t==="config"){fixedDraft=[];renderConfig();refreshCfg()} if(t==="equipe")loadWeek(); Object.values(charts).forEach(c=>c.resize())}

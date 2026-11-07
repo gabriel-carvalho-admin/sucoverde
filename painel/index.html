@@ -166,6 +166,8 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
 .ad-addsb{display:flex;gap:8px;margin-top:8px}
 .ad-addsb input{flex:1}
 #printArea{display:none}
+.estnote{background:#fdf0dc;border-color:#f1d3a6}
+.estnote a{color:#1f6b2a;font-weight:800;margin-left:4px}
 @media print{
   @page{margin:3mm}
   body{background:#fff}
@@ -209,6 +211,7 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
     <a class="btn" href="../compras/" style="text-decoration:none">Compras</a>
     <a class="btn" href="../caixa/" style="text-decoration:none">Caixa</a>
     <a class="btn" href="../vendas/" style="text-decoration:none">Venda avulsa</a>
+    <a class="btn" href="../estoque/" style="text-decoration:none">Estoque</a>
     <a class="btn" href="../financeiro/" style="text-decoration:none">Financeiro</a>
     <button type="button" class="btn" id="logout">Sair</button>
   </div>
@@ -220,6 +223,7 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
 </nav>
 
 <p class="note" id="note" hidden></p>
+<p class="note estnote" id="estNote" hidden></p>
 <p class="note sound" id="soundNote" hidden><span>Toque aqui para ligar o som de novos pedidos.</span></p>
 
 <div id="pedidosView">
@@ -364,6 +368,7 @@ function backend(){
     const app=A.initializeApp(FB_CFG), db=F.getFirestore(app), auth=U.getAuth(app);
     const toPlain=s=>s.docs.map(d=>Object.assign({id:d.id},d.data({serverTimestamps:"estimate"})));
     return {
+      async estoqueDoc(dia){try{const s=await F.getDoc(F.doc(db,"estoque",dia));return s.exists()?s.data():null}catch(e){return null}},
       onAuth(cb){return U.onAuthStateChanged(auth,u=>cb(u?{email:u.email}:null))},
       signIn(e,p){return U.signInWithEmailAndPassword(auth,e,p)},
       signOut(){return U.signOut(auth)},
@@ -777,13 +782,21 @@ $("loginForm").addEventListener("submit",async e=>{
 $("logout").addEventListener("click",()=>be&&be.signOut());
 
 let menuUnsub=null;
+async function checkEstoque(){
+  const t=tzDate(new Date()), [y,m,d]=t.split("-").map(Number), w=new Date(Date.UTC(y,m-1,d)).getUTCDay();
+  if(![6,0,1].includes(w)||!be.estoqueDoc){$("estNote").hidden=true;return}
+  const sat=new Date(Date.UTC(y,m-1,d)-((w+1)%7)*864e5).toISOString().slice(0,10);
+  const doc=await be.estoqueDoc(sat);
+  $("estNote").hidden=!!(doc&&doc.status==="fechada");
+  $("estNote").innerHTML=`📦 A contagem de estoque de sábado (${sat.slice(8,10)}/${sat.slice(5,7)}) ainda não foi ${doc?"finalizada":"feita"}. <a href="../estoque/">Fazer contagem</a>`;
+}
 (async function(){
   try{ be=await backend(); }
   catch(e){ $("loginView").hidden=false; $("lErr").textContent="Não consegui carregar o sistema. Confira a internet e recarregue a página."; return; }
   be.onAuth(u=>{
     if(u){
       $("loginView").hidden=true;$("appView").hidden=false;$("lPass").value="";
-      setTab("p"); subscribe();
+      setTab("p"); subscribe(); checkEstoque();
       if(!menuUnsub) menuUnsub=be.watchMenu(d=>{MENU=d&&Array.isArray(d.cats)?d:DEFAULT_MENU; if(!$("cardapioView").hidden&&!menuDirty){draft=JSON.parse(JSON.stringify(MENU));renderMenuEditor()}});
       unlockAudio();
     } else {
