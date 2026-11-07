@@ -294,6 +294,15 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
 .dirty-note{margin:0 0 6px;font-weight:800;color:#9a4d07;font-size:.88rem}
 .tbl.cfg{table-layout:fixed;min-width:620px}
 .tbl.cfg th:nth-child(1){width:34%} .tbl.cfg th:nth-child(2){width:16%} .tbl.cfg th:nth-child(3){width:20%} .tbl.cfg th:nth-child(4){width:14%} .tbl.cfg th:nth-child(5){width:16%}
+
+.modo{display:grid;gap:8px;margin:6px 0 12px}
+.modo label{display:block;padding:10px 12px;border:1px solid var(--line,#e5dccf);border-radius:10px;cursor:pointer;background:#fff}
+.modo label:has(input:checked){border-color:#1f6b2a;background:#f1f8f0}
+.modo small{display:block;color:#7a6a58;margin:2px 0 0 24px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips .chip{border:1px solid #d9cdbd;background:#fff;border-radius:999px;padding:6px 12px;font:inherit;font-size:.9rem;cursor:pointer;color:#52514e}
+.chips .chip.on{background:#eb6834;border-color:#eb6834;color:#fff}
+.chips.off,.sub.off{opacity:.45;pointer-events:none}
 </style>
 </head>
 <body>
@@ -360,7 +369,7 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
     <div class="tile"><span>Compras</span><b id="kCompR">—</b><em id="kCompRs"></em></div>
     <div class="tile"><span>Equipe</span><b id="kEqR">—</b><em id="kEqRs"></em></div>
     <div class="tile"><span>Custos fixos</span><b id="kCfR">—</b><em id="kCfRs"></em></div>
-    <div class="tile"><span>Sobra de caixa</span><b id="kSobra">—</b><em id="kSobraS"></em></div>
+    <div class="tile"><span id="kSobraL">Sobra de caixa</span><b id="kSobra">—</b><em id="kSobraS"></em></div>
   </div>
   <div class="box pe">
     <div class="pe-top"><h3>Ponto de equilíbrio do mês</h3><b id="pePct">—</b></div>
@@ -400,7 +409,7 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
     <p class="sub" id="dreNote"></p>
   </div>
 
-  <div class="box">
+  <div class="box" id="cxBox">
     <h3>Resultado de caixa (com as compras)</h3>
     <p class="sub">Mostra o dinheiro que sobrou de verdade: desconta tudo o que foi gasto em compras no período, inclusive o que ainda está no estoque.</p>
     <table class="dre" id="caixaDre"></table>
@@ -473,7 +482,7 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
     <div class="tile"><span>Gasto em compras</span><b id="kCmp">—</b><em id="kCmpN"></em></div>
     <div class="tile"><span>Onde mais gastou</span><b id="kCmpTop" class="small">—</b><em id="kCmpTopV"></em></div>
     <div class="tile"><span>Compras ÷ vendas</span><b id="kCmpPct">—</b><em>quanto das vendas foi para compras</em></div>
-    <div class="tile"><span>Sobra de caixa</span><b id="kCaixa">—</b><em>vendas − compras − taxas − equipe − fixos</em></div>
+    <div class="tile"><span id="kSobraL">Sobra de caixa</span><b id="kCaixa">—</b><em>vendas − compras − taxas − equipe − fixos</em></div>
   </div>
   <div class="grid2">
     <div class="box chartbox"><h3>Gasto por categoria</h3><div class="pie-row"><div class="cwrap pie"><canvas id="cCmpCat" role="img" aria-label="Pizza de gasto por categoria"></canvas></div><ul class="legend" id="lCmpCat"></ul></div></div>
@@ -528,6 +537,15 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
   <div class="cfg-top">
     <p class="sub">Os produtos e os preços de venda vêm <b>direto do cardápio do painel</b> e da venda avulsa, e se atualizam sozinhos. Aqui você só informa quanto custa fazer cada um.</p>
     <span class="live"><i></i>ao vivo</span>
+  </div>
+  <div class="box">
+    <h3>Como calcular o lucro bruto</h3>
+    <div class="modo" id="cfgModo">
+      <label><input type="radio" name="cmvModo" value="compras"> <b>Pelas compras lançadas</b> <small>(recomendado) o custo é o que você gastou de verdade nas compras do período</small></label>
+      <label><input type="radio" name="cmvModo" value="produtos"> <b>Pelo custo de cada produto</b> <small>usa os custos cadastrados abaixo; precisa que as vendas da banca sejam registradas no painel</small></label>
+    </div>
+    <p class="sub" id="cfgDespHint">Categorias de compra que são <b>despesa</b> e não mercadoria (saem do lucro líquido, não do bruto):</p>
+    <div class="chips" id="cfgDesp"></div>
   </div>
   <div class="box">
     <div class="pe-top"><h3>Custo de cada produto</h3><input type="search" id="cfgSearch" placeholder="Buscar produto…" aria-label="Buscar produto"></div>
@@ -685,6 +703,14 @@ function fixedMonthly(){return (CFG.fixos||[]).reduce((a,f)=>a+(+f.valor||0),0)}
 function fixedFactor(){return period==="dia"?1/WORKDAYS:period==="semana"?6/WORKDAYS:period==="mes"?1:12}
 function feeOf(p){const t=CFG.taxas||{};return p==="Cartão de débito"?(+t.debito||0)/100:p==="Cartão de crédito"?(+t.credito||0)/100:p==="Pix"?(+t.pix||0)/100:0}
 
+const DESP_DEFAULT=["Limpeza e higiene","Gás e gelo","Equipamentos e utensílios"];
+function despCats(){return Array.isArray(CFG.despesasCats)?CFG.despesasCats:DESP_DEFAULT}
+function cmvModo(){return CFG.cmvModo==="produtos"?"produtos":"compras"}
+function comprasSplit(){const d=new Set(despCats()),mc={},dc={};let merc=0,desp=0;
+  COMPRAS.forEach(c=>{const its=c.itens||[];let soma=0;its.forEach(i=>{const v=+i.total||0;soma+=v;const k=i.categoria||"Sem categoria";if(d.has(k)){desp+=v;dc[k]=(dc[k]||0)+v}else{merc+=v;mc[k]=(mc[k]||0)+v}});
+    const resto=(+c.total||0)-soma;if(Math.abs(resto)>0.004){merc+=resto;mc["Sem categoria"]=(mc["Sem categoria"]||0)+resto}});
+  return {merc,desp,mc,dc}}
+function menuRatio(){let p=0,c=0;(MENU.cats||[]).forEach(k=>{if(k.id==="complementos")return;(k.itens||[]).forEach(i=>{const x=CFG.custos[i.n];if(x&&(+i.p>0)&&x.tipo!=="servico"){p+=+i.p;c+=+x.custo||0}})});return p>0?c/p:0}
 function machineRate(){const t=CFG.taxas||{};if(t.maquina!=null&&t.maquina!=="")return (+t.maquina||0)/100;return ((+t.debito||0)+(+t.credito||0))/200}
 function compute(orders){
   const ok=orders.filter(o=>o.status!=="cancelado");
@@ -705,7 +731,7 @@ function compute(orders){
   });
   Object.entries(dayO).forEach(([d,v])=>byDay[d]=v);
   // caixa fechado: a venda bruta do caixa é o valor oficial do dia
-  const rCmv=fatO>0?cmv/fatO:0, rCsv=fatO>0?csv/fatO:0;
+  const rCmv=fatO>0?cmv/fatO:menuRatio(), rCsv=fatO>0?csv/fatO:0;
   let fat=fatO, banca=0, ajuste=0, equipe=0, diasCx=0, cmvEst=0;
   const t=CFG.taxas||{};
   Object.values(cx).forEach(c=>{
@@ -737,13 +763,16 @@ function compute(orders){
   const eqCaixa=equipe, eqTab=teamDue().tot;
   let equipeFonte="caixa"; if(eqTab>0){equipe=eqTab;equipeFonte="equipe"}
   const imp=fat*((+CFG.imposto||0)/100);
-  const rl=fat-imp-taxas, lb=rl-cmv-csv, cf=fixedMonthly()*fixedFactor(), ll=lb-equipe-cf;
-  const mc=fat>0?lb/fat:NaN, pe=mc>0?fixedMonthly()/mc:NaN;
+  const cmvProd=cmv+csv, CS=comprasSplit(), viaCompras=cmvModo()==="compras"&&COMPRAS.length>0;
+  let despOp=0; if(viaCompras){cmv=CS.merc;csv=0;despOp=CS.desp}
+  const rl=fat-imp-taxas, lb=rl-cmv-csv, cf=fixedMonthly()*fixedFactor(), ll=lb-despOp-equipe-cf;
+  const peBase=fixedMonthly()+(equipe+despOp)/fixedFactor();
+  const mc=fat>0?lb/fat:NaN, pe=mc>0?peBase/mc:NaN;
   Object.values(prod).forEach(p=>{p.lucro=p.fat-p.custo;p.margem=p.fat>0?p.lucro/p.fat:NaN});
   Object.keys(byPay).forEach(k=>{if(!(byPay[k]>0))delete byPay[k]});
   const semCusto=[...new Set(Object.values(prod).filter(p=>p.q>0&&!CFG.custos[p.base||p.n]).map(p=>p.base||p.n))];
   const noCost=semCusto.length;
-  return {site,avulsa,bancaTot:fat-site-avulsa,ok,fat,fatO,n:ok.length,ticket:ok.length?fatO/ok.length:0,imp,taxas,rl,cmv,csv,lb,cf,ll,mc,pe,prod,byPay,byOrig,noCost,semCusto,banca,ajuste,equipe,equipeFonte,eqCaixa,diasCx,cmvEst,byDay};
+  return {viaCompras,despOp,cmvProd,CS,peBase,site,avulsa,bancaTot:fat-site-avulsa,ok,fat,fatO,n:ok.length,ticket:ok.length?fatO/ok.length:0,imp,taxas,rl,cmv,csv,lb,cf,ll,mc,pe,prod,byPay,byOrig,noCost,semCusto,banca,ajuste,equipe,equipeFonte,eqCaixa,diasCx,cmvEst,byDay};
 }
 
 /* ---------- gráficos ---------- */
@@ -818,14 +847,14 @@ function renderResumo(S){
   $("kLL").textContent=brl(S.ll); $("kLLm").textContent="margem "+pct(S.fat?S.ll/S.fat:NaN);
   $("kLL").classList.toggle("neg",S.ll<0);
   // ponto de equilíbrio
-  const fm=fixedMonthly();
+  const fm=S.peBase;
   if(!fm){$("pePct").textContent="—";$("peFill").style.width="0";$("peText").textContent="Cadastre os custos fixos na aba Custos e taxas para calcular o ponto de equilíbrio.";}
   else if(!(S.mc>0)){$("pePct").textContent="—";$("peFill").style.width="0";$("peText").textContent=S.fat?"Com os custos atuais, cada venda não sobra dinheiro para pagar os custos fixos. Revise preços e custos.":"Sem vendas no período para calcular.";}
   else{
     const peDia=S.pe/WORKDAYS;
     if(period==="mes"){const p=S.fat/S.pe;$("pePct").textContent=pct(p);$("peFill").style.width=Math.min(100,p*100)+"%";$("peFill").classList.toggle("ok",p>=1);
-      $("peText").textContent=p>=1?"Custos fixos do mês cobertos! Tudo que entrar a mais é lucro. Meta do mês: "+brl(S.pe)+".":"Faltam "+brl(S.pe-S.fat)+" para cobrir os custos fixos do mês (meta "+brl(S.pe)+", cerca de "+brl(peDia)+" por dia aberto).";}
-    else{$("pePct").textContent=brl0(S.pe)+"/mês";$("peFill").style.width="0";$("peText").textContent="Para cobrir os custos fixos ("+brl(fm)+" por mês), a lanchonete precisa faturar "+brl(S.pe)+" por mês, cerca de "+brl(peDia)+" por dia aberto. Calculado com a margem deste período ("+pct(S.mc)+").";}
+      $("peText").textContent=p>=1?"Custos fixos, equipe e despesas do mês cobertos! Tudo que entrar a mais é lucro. Meta do mês: "+brl(S.pe)+".":"Faltam "+brl(S.pe-S.fat)+" para cobrir custos fixos, equipe e despesas do mês (meta "+brl(S.pe)+", cerca de "+brl(peDia)+" por dia aberto).";}
+    else{$("pePct").textContent=brl0(S.pe)+"/mês";$("peFill").style.width="0";$("peText").textContent="Para cobrir custos fixos, equipe e despesas (cerca de "+brl(fm)+" por mês), a lanchonete precisa faturar "+brl(S.pe)+" por mês, cerca de "+brl(peDia)+" por dia aberto. Calculado com a margem deste período ("+pct(S.mc)+").";}
   }
   // série no tempo
   if(period==="dia"){
@@ -851,17 +880,20 @@ function renderResumo(S){
   pie("cPay","lPay",S.byPay); pie("cOrig","lOrig",S.byOrig);
   // DRE
   const rows=[["Faturamento bruto",S.fat,"dre-tot"],["   Pedidos pelo site",S.site,"dre-det"],["   Vendido na banca",S.bancaTot,"dre-det"],...(S.avulsa?[["   Venda avulsa",S.avulsa,"dre-det"]]:[]),["(−) Impostos sobre vendas",-S.imp],["(−) Taxas de cartão e Pix",-S.taxas],["= Receita líquida",S.rl,"dre-sub"],
-    ["(−) CMV – custo das mercadorias vendidas",-S.cmv],["(−) CSV – custo dos serviços vendidos",-S.csv],["= Lucro bruto",S.lb,"dre-sub"],
+    ...(S.viaCompras?[["(−) CMV – compras de mercadorias",-S.cmv],...Object.entries(S.CS.mc).sort((a,b)=>b[1]-a[1]).map(([k,v])=>["   "+esc(k),-v,"dre-det"])]:[["(−) CMV – custo das mercadorias vendidas",-S.cmv],["(−) CSV – custo dos serviços vendidos",-S.csv]]),["= Lucro bruto",S.lb,"dre-sub"],
+    ...(S.despOp?[["(−) Despesas operacionais (compras)",-S.despOp],...Object.entries(S.CS.dc).sort((a,b)=>b[1]-a[1]).map(([k,v])=>["   "+esc(k),-v,"dre-det"])]:[]),
     ...(S.equipe?[[S.equipeFonte==="equipe"?"(−) Equipe (diárias da aba Equipe)":"(−) Pagamentos à equipe (caixa)",-S.equipe]]:[]),["(−) Custos fixos do período",-S.cf],["= Lucro líquido",S.ll,"dre-tot"]];
   $("dre").innerHTML=rows.map(([k,v,c])=>`<tr class="${c||""}"><th scope="row">${k}</th><td class="${v<0&&c?"neg":""}">${brl(v)}</td><td class="pc">${S.fat&&c!=="dre-det"?pct(v/S.fat):""}</td></tr>`).join("")+
     `<tr><td colspan="3" class="dre-dl"><button type="button" class="btn" id="dreCsv">Baixar DRE em CSV</button></td></tr>`;
   $("dreCsv").onclick=exportDre;
   const ctot=COMPRAS.reduce((a,c)=>a+(+c.total||0),0);
-  $("dreNote").textContent=(S.diasCx?"Dias com caixa fechado usam a venda bruta do caixa. O CMV das vendas sem registro no painel é estimado pela mesma proporção dos pedidos registrados"+(S.cmvEst?" ("+brl(S.cmvEst)+")":"")+". ":"Nenhum dia com caixa fechado: o faturamento vem só dos pedidos registrados. ")+(S.equipe?(S.equipeFonte==="equipe"?"A equipe usa as diárias lançadas na aba Equipe; ":"A equipe usa os pagamentos do fechamento de caixa (lance as diárias na aba Equipe para mais precisão); ")+"não repita salários nos custos fixos. ":"")+(ctot?"Compras lançadas no período: "+brl(ctot)+" (veja a aba Compras). ":"")+"Custos fixos: "+brl(fixedMonthly())+" por mês"+(period==="dia"?", divididos por "+WORKDAYS+" dias abertos.":period==="semana"?", proporcional a 6 dias abertos.":period==="ano"?" × 12 meses.":".");
+  $("dreNote").textContent=(S.viaCompras?"O CMV vem das compras de mercadorias lançadas no período; limpeza, gás e equipamentos entram como despesas (dá para mudar em Custos e taxas). Pelos custos cadastrados de cada produto, a margem bruta seria de "+pct(S.fat?(S.fat-S.imp-S.taxas-S.cmvProd)/S.fat:NaN)+"; se o lucro real ficar bem abaixo disso, há desperdício, estoque parado ou custo desatualizado. "+(period==="dia"?"No dia a dia o lucro oscila porque a compra entra no dia em que foi feita: confira na semana ou no mês. ":""):"")+(S.diasCx?"Dias com caixa fechado usam a venda bruta do caixa. "+(S.viaCompras?"":"O CMV das vendas sem registro no painel é estimado pela margem dos produtos"+(S.cmvEst?" ("+brl(S.cmvEst)+")":"")+". "):"Nenhum dia com caixa fechado: o faturamento vem só dos pedidos registrados. ")+(S.equipe?(S.equipeFonte==="equipe"?"A equipe usa as diárias lançadas na aba Equipe; ":"A equipe usa os pagamentos do fechamento de caixa (lance as diárias na aba Equipe para mais precisão); ")+"não repita salários nos custos fixos. ":"")+(ctot&&!S.viaCompras?"Compras lançadas no período: "+brl(ctot)+" (veja a aba Compras). ":"")+"Custos fixos: "+brl(fixedMonthly())+" por mês"+(period==="dia"?", divididos por "+WORKDAYS+" dias abertos.":period==="semana"?", proporcional a 6 dias abertos.":period==="ano"?" × 12 meses.":".");
   // compras e sobra de caixa
   const C=comprasStats(), sobra=S.fat-S.imp-S.taxas-C.tot-S.equipe-S.cf;
   $("kCompR").textContent=brl(C.tot); $("kCompRs").textContent=S.fat?pct(C.tot/S.fat)+" das vendas":(COMPRAS.length?COMPRAS.length+" compras":"nenhuma compra lançada");
-  $("kSobra").textContent=brl(sobra); $("kSobra").classList.toggle("neg",sobra<0); $("kSobraS").textContent="vendas − compras − taxas − equipe − fixos";
+  $("cxBox").hidden=S.viaCompras;
+  if(S.viaCompras){$("kSobraL").textContent="Lucro por dia aberto";$("kSobra").textContent=brl(nd?S.ll/nd:0);$("kSobra").classList.toggle("neg",S.ll<0);$("kSobraS").textContent=nd+(nd===1?" dia aberto":" dias abertos")+" no período"}
+  else{$("kSobraL").textContent="Sobra de caixa";$("kSobra").textContent=brl(sobra); $("kSobra").classList.toggle("neg",sobra<0); $("kSobraS").textContent="vendas − compras − taxas − equipe − fixos";}
   $("kEqR").textContent=brl(S.equipe); $("kEqRs").textContent=(S.fat?pct(S.equipe/S.fat)+" das vendas · ":"")+(S.equipeFonte==="equipe"?"diárias lançadas":S.equipe?"pagamentos do caixa":"nada lançado");
   $("kCfR").textContent=brl(S.cf); $("kCfRs").textContent=(S.fat?pct(S.cf/S.fat)+" das vendas · ":"")+(period==="mes"?"do mês":period==="ano"?"12 meses":"proporcional");
   renderEquipeBox(S);
@@ -1156,23 +1188,35 @@ function renderConfig(){
   if(others.length) h+=`<details class="cgroup others"${q?" open":""}><summary><b>Outros itens</b> <span class="cg-count">${others.length}</span> <small>(saíram do cardápio ou só aparecem em pedidos antigos)</small></summary><div class="tscroll"><table class="tbl cfg">${head}<tbody>${others.map(costRow).join("")}</tbody></table></div></details>`;
   if(!h) h=`<p class="empty">Nenhum produto encontrado para “${esc(cfgFilter)}”.</p>`;
   $("cfgCosts").innerHTML=h;
-  renderFixed();
+  renderFixed(); renderModo();
   const t=CFG.taxas||{};const fz=v=>(+v||0).toString().replace(".",",");
   const R=rateDraft||{rDeb:fz(t.debito),rCred:fz(t.credito),rPix:fz(t.pix),rMaq:t.maquina==null?"":fz(t.maquina),rImp:fz(CFG.imposto)};
   Object.entries(R).forEach(([id,v])=>{if(document.activeElement!==$(id))$(id).value=v});
-  const nd=Object.keys(costDraft).length; $("cfgDirty").hidden=!nd&&!rateDraft&&!fixedDirty; $("cfgDirty").textContent=nd?nd+(nd===1?" custo alterado":" custos alterados")+" ainda não salvo"+(nd===1?"":"s"):"Alterações ainda não salvas";
+  const nd=Object.keys(costDraft).length; $("cfgDirty").hidden=!nd&&!rateDraft&&!fixedDirty&&!modoDraft; $("cfgDirty").textContent=nd?nd+(nd===1?" custo alterado":" custos alterados")+" ainda não salvo"+(nd===1?"":"s"):"Alterações ainda não salvas";
   if(focusMissing){setTimeout(()=>{const r=document.querySelector("#cfgCosts tr.missrow input[data-f=custo]");if(r){r.scrollIntoView({block:"center",behavior:"smooth"});r.focus({preventScroll:true})}focusMissing=false},150)}
 }
 $("cfgCosts").addEventListener("focusout",()=>setTimeout(()=>{const ae=document.activeElement;if(pendingCfg&&!(ae&&ae.closest&&ae.closest("#cfgCosts")))renderConfig()},0));
 $("cfgSearch").addEventListener("input",e=>{cfgFilter=e.target.value;renderConfig();$("cfgSearch").focus()});
-let fixedDraft=[], fixedDirty=false;
+let fixedDraft=[], fixedDirty=false, modoDraft=null;
+function renderModo(){
+  const m=modoDraft||{modo:cmvModo(),desp:despCats().slice()};
+  document.querySelectorAll('#cfgModo input').forEach(r=>r.checked=r.value===m.modo);
+  const base=["Alimentos","Bebidas","Embalagens e descartáveis","Limpeza e higiene","Gás e gelo","Equipamentos e utensílios","Outros"];
+  COMPRAS.forEach(c=>(c.itens||[]).forEach(i=>{if(i.categoria&&!base.includes(i.categoria))base.push(i.categoria)}));
+  m.desp.forEach(k=>{if(!base.includes(k))base.push(k)});
+  $("cfgDesp").innerHTML=base.map(k=>`<button type="button" class="chip${m.desp.includes(k)?" on":""}" data-k="${esc(k)}" aria-pressed="${m.desp.includes(k)}">${esc(k)}</button>`).join("");
+  $("cfgDesp").classList.toggle("off",m.modo!=="compras"); $("cfgDespHint").classList.toggle("off",m.modo!=="compras");
+}
+function modoCur(){return modoDraft||(modoDraft={modo:cmvModo(),desp:despCats().slice()})}
+$("cfgModo").addEventListener("change",e=>{if(e.target.name!=="cmvModo")return;modoCur().modo=e.target.value;markDirty();renderModo()});
+$("cfgDesp").addEventListener("click",e=>{const b=e.target.closest("[data-k]");if(!b)return;const m=modoCur(),k=b.dataset.k,i=m.desp.indexOf(k);if(i>=0)m.desp.splice(i,1);else m.desp.push(k);markDirty();renderModo()});
 function renderFixed(){
   if(!fixedDraft.length) fixedDraft=JSON.parse(JSON.stringify(CFG.fixos||[]));
   if(document.activeElement&&document.activeElement.closest&&document.activeElement.closest("#cfgFixed")) return;
   $("cfgFixed").innerHTML=fixedDraft.map((f,i)=>`<div class="fx"><input type="text" data-i="${i}" data-f="nome" value="${esc(f.nome)}" aria-label="Nome do custo fixo"><span>R$ <input type="text" inputmode="decimal" data-i="${i}" data-f="valor" value="${typeof f.valor==="string"?esc(f.valor):(+f.valor||0).toFixed(2).replace(".",",")}" aria-label="Valor de ${esc(f.nome)}"></span><button type="button" class="x" data-rm="${i}" aria-label="Remover ${esc(f.nome)}">×</button></div>`).join("");
   $("fixedTotal").textContent=brl(fixedDraft.reduce((a,f)=>a+(num(f.valor)||0),0));
 }
-function markDirty(){const nd=Object.keys(costDraft).length;$("cfgDirty").hidden=!nd&&!rateDraft&&!fixedDirty;$("cfgDirty").textContent=nd?nd+(nd===1?" custo alterado":" custos alterados")+" ainda não salvo"+(nd===1?"":"s"):"Alterações ainda não salvas";$("cfgMsg").textContent=""}
+function markDirty(){const nd=Object.keys(costDraft).length;$("cfgDirty").hidden=!nd&&!rateDraft&&!fixedDirty&&!modoDraft;$("cfgDirty").textContent=nd?nd+(nd===1?" custo alterado":" custos alterados")+" ainda não salvo"+(nd===1?"":"s"):"Alterações ainda não salvas";$("cfgMsg").textContent=""}
 $("cfgFixed").addEventListener("input",e=>{const t=e.target;if(t.dataset.i===undefined)return;fixedDraft[+t.dataset.i][t.dataset.f]=t.value;fixedDirty=true;markDirty();$("fixedTotal").textContent=brl(fixedDraft.reduce((a,f)=>a+(num(f.valor)||0),0))});
 $("cfgFixed").addEventListener("click",e=>{const b=e.target.closest("[data-rm]");if(!b)return;fixedDraft.splice(+b.dataset.rm,1);if(!fixedDraft.length)fixedDraft.push({nome:"",valor:0});fixedDirty=true;markDirty();renderFixed()});
 $("addFixed").addEventListener("click",()=>{fixedDraft.push({nome:"",valor:0});fixedDirty=true;renderFixed();const ins=$("cfgFixed").querySelectorAll('input[data-f="nome"]');ins[ins.length-1].focus()});
@@ -1193,13 +1237,14 @@ $("cfgSave").addEventListener("click",async()=>{
   const rates={debito:rate("rDeb"),credito:rate("rCred"),pix:rate("rPix"),maquina:$("rMaq").value.trim()===""?null:rate("rMaq")}, imposto=rate("rImp");
   if([rates.debito,rates.credito,rates.pix,rates.maquina||0,imposto].some(v=>v<0||v>100)) bad=bad||"as taxas (use de 0 a 100)";
   if(bad){$("cfgMsg").textContent="Confira o valor de "+bad+". Use só números, como 3,50.";return}
-  const d={custos,fixos,taxas:rates,imposto,atualizado:Date.now()};
+  const m=modoDraft||{modo:cmvModo(),desp:despCats()};
+  const d={custos,fixos,taxas:rates,imposto,cmvModo:m.modo,despesasCats:m.desp,atualizado:Date.now()};
   $("cfgSave").disabled=true;$("cfgSave").textContent="Salvando...";$("cfgMsg").textContent="";
-  try{await be.setDoc("config/financeiro",d);CFG=d;costDraft={};rateDraft=null;fixedDraft=[];fixedDirty=false;$("cfgSave").textContent="Salvo!";setTimeout(()=>$("cfgSave").textContent="Salvar custos e taxas",2000);recompute()}
+  try{await be.setDoc("config/financeiro",d);CFG=d;costDraft={};rateDraft=null;fixedDraft=[];fixedDirty=false;modoDraft=null;$("cfgSave").textContent="Salvo!";setTimeout(()=>$("cfgSave").textContent="Salvar custos e taxas",2000);recompute()}
   catch(err){$("cfgMsg").textContent=err&&err.code==="permission-denied"?"Sua conta não tem permissão para alterar os custos.":"Não consegui salvar agora. Tente de novo.";$("cfgSave").textContent="Salvar custos e taxas"}
   $("cfgSave").disabled=false;
 });
-window.addEventListener("beforeunload",e=>{if(Object.keys(costDraft).length||rateDraft||fixedDirty){e.preventDefault();e.returnValue=""}});
+window.addEventListener("beforeunload",e=>{if(Object.keys(costDraft).length||rateDraft||fixedDirty||modoDraft){e.preventDefault();e.returnValue=""}});
 
 /* ---------- CSV ---------- */
 function download(name,rows){
@@ -1217,8 +1262,8 @@ $("btnCsv").addEventListener("click",()=>{
 function exportDre(){
   const S=STATS; download("suco-verde-dre_"+fileTag()+".csv",[["Suco Verde – "+label()],[],["Linha","Valor (R$)","% do faturamento"],
     ["Faturamento bruto",S.fat,"100%"],["  Pedidos pelo site",S.site,""],["  Vendido na banca",S.bancaTot,""],["  Venda avulsa",S.avulsa,""],["(-) Impostos",-S.imp,pct(S.fat?S.imp/S.fat:NaN)],["(-) Taxas de cartão e Pix",-S.taxas,pct(S.fat?S.taxas/S.fat:NaN)],["= Receita líquida",S.rl,pct(S.fat?S.rl/S.fat:NaN)],
-    ["(-) CMV",-S.cmv,pct(S.fat?S.cmv/S.fat:NaN)],["(-) CSV",-S.csv,pct(S.fat?S.csv/S.fat:NaN)],["= Lucro bruto",S.lb,pct(S.fat?S.lb/S.fat:NaN)],
-    ["(-) Pagamentos à equipe (caixa)",-S.equipe,pct(S.fat?S.equipe/S.fat:NaN)],["(-) Custos fixos",-S.cf,pct(S.fat?S.cf/S.fat:NaN)],["= Lucro líquido",S.ll,pct(S.fat?S.ll/S.fat:NaN)],[],["Resultado de caixa"],["Compras do período",-comprasStats().tot],["Sobra de caixa",S.fat-S.imp-S.taxas-comprasStats().tot-S.equipe-S.cf],[],["Pedidos",S.n],["Ticket médio",S.ticket],["Ponto de equilíbrio mensal",isFinite(S.pe)?S.pe:""]]);
+    ["(-) CMV"+(S.viaCompras?" (compras de mercadorias)":""),-S.cmv,pct(S.fat?S.cmv/S.fat:NaN)],["(-) CSV",-S.csv,pct(S.fat?S.csv/S.fat:NaN)],["= Lucro bruto",S.lb,pct(S.fat?S.lb/S.fat:NaN)],["(-) Despesas operacionais (compras)",-S.despOp,pct(S.fat?S.despOp/S.fat:NaN)],
+    ["(-) Equipe",-S.equipe,pct(S.fat?S.equipe/S.fat:NaN)],["(-) Custos fixos",-S.cf,pct(S.fat?S.cf/S.fat:NaN)],["= Lucro líquido",S.ll,pct(S.fat?S.ll/S.fat:NaN)],[],["Resultado de caixa"],["Compras do período",-comprasStats().tot],["Sobra de caixa",S.fat-S.imp-S.taxas-comprasStats().tot-S.equipe-S.cf],[],["Pedidos",S.n],["Ticket médio",S.ticket],["Ponto de equilíbrio mensal",isFinite(S.pe)?S.pe:""]]);
 }
 
 /* ---------- fluxo ---------- */
