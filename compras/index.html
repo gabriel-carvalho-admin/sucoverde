@@ -256,6 +256,42 @@ select:disabled{opacity:.6}
 .resumo{margin:10px 0 0;font-size:.92rem;color:var(--leaf)}
 @media (max-width:420px){.modes{grid-template-columns:repeat(2,1fr)}.modes button{flex-direction:row;gap:6px;min-height:48px}.seg button{padding:0 9px;min-width:36px;font-size:.9rem}}
 p.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px;font-size:inherit}
+
+.rev h2 .bdg{background:#eb6834;color:#fff;border-radius:999px;font-size:.75rem;padding:1px 8px;vertical-align:middle;letter-spacing:0}
+.revall{display:flex;gap:8px;align-items:center;font-weight:700;font-size:.88rem;color:var(--muted);margin:6px 0 4px}
+.rv{border:1px solid var(--line);border-radius:12px;margin-top:8px;background:#fff;overflow:hidden}
+.rv.bad{border-color:#f1c79f}
+.rv-h{width:100%;text-align:left;border:0;background:none;padding:11px 12px;display:block;font:inherit;color:var(--ink);cursor:pointer}
+.rv.bad .rv-h{background:#fdf3e6}
+.rv-h b{display:block}
+.rv-h small{display:block;color:var(--muted);font-weight:600;font-size:.8rem;margin-top:2px}
+.rv.bad .rv-h small{color:#b4541b}
+.rv-b{padding:4px 12px 12px}
+.rv-tip{font-size:.88rem;background:#eef6e6;border-radius:10px;padding:8px 10px;margin:8px 0}
+.rv-tip .btn{margin-top:6px}
+.rv-bulk{background:#f8f4ec;border:1px solid var(--line);border-radius:10px;padding:10px;margin:8px 0;display:grid;gap:6px;font-size:.88rem;font-weight:700}
+.rv-bulk select{width:auto;padding:8px !important;border-radius:10px}
+.rv-l{list-style:none;margin:6px 0 0;padding:0}
+.rv-l li{border-top:1px solid var(--line);padding:9px 0}
+.rv-r{display:grid;grid-template-columns:1fr auto;gap:2px 10px;align-items:center}
+.rv-r span{font-size:.78rem;color:var(--muted);font-weight:700}
+.rv-r b{grid-column:1;font-size:.95rem}
+.rv-r em{grid-column:1;font-style:normal;font-size:.85rem;font-weight:700}
+.rv-r em small{display:inline;color:var(--muted);font-weight:600;margin-left:6px}
+.rv-r .btn{grid-column:2;grid-row:1/4}
+.rv-l li.p .rv-r b{color:#b4541b}
+.rv-p{margin:4px 0 0;font-size:.8rem;color:#b4541b;font-weight:700}
+.rv-e{margin-top:8px;background:#f8f4ec;border-radius:10px;padding:10px;display:grid;gap:8px}
+.rv-e .amt{margin:0;align-items:center}
+.rv-e select{width:auto;padding:8px !important;border-radius:10px}
+.rv-un{font-weight:800;color:var(--muted);font-size:.88rem;white-space:nowrap}
+.modes.sm{grid-template-columns:repeat(4,1fr)}
+.modes.sm button{min-height:38px;padding:6px 2px;flex-direction:row}
+.modes.sm button b{font-size:.85rem}
+.rv-prev{margin:0;font-size:.88rem;color:var(--leaf)}
+.btn.sm{padding:7px 12px;font-size:.85rem}
+@media (max-width:420px){.modes.sm{grid-template-columns:repeat(4,1fr)}.modes.sm button{min-height:38px}}
+.revtop{display:block;margin:12px 0 0;background:#fdf3e6;border:1px solid #f1c79f;border-radius:12px;padding:10px 12px;font-weight:800;color:#b4541b;text-decoration:none;font-size:.9rem}
 </style>
 </head>
 <body>
@@ -283,6 +319,7 @@ p.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px;font-siz
 </div>
 
 <main class="wrap" id="appView" hidden>
+  <a class="revtop" id="revTop" href="#revBox" hidden></a>
   <p class="note" id="note" hidden></p>
 
   <section class="card">
@@ -378,6 +415,13 @@ p.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px;font-siz
     <ul class="items" id="items"></ul>
   </section>
 
+  <section class="card rev" id="revBox" hidden>
+    <h2>Revisar medidas <span class="bdg" id="revCount"></span></h2>
+    <p class="sub" id="revInfo"></p>
+    <label class="revall"><input type="checkbox" id="revAll"> Mostrar todos os itens comprados</label>
+    <div id="revList"></div>
+  </section>
+
   <section class="card">
     <h2>Últimas compras</h2>
     <ul class="hist" id="hist"><li class="empty">Carregando…</li></ul>
@@ -438,7 +482,12 @@ function backend(){
         await batch.commit(); return ref.id;
       },
       watchRecent(cb,err){return F.onSnapshot(F.query(F.collection(db,"compras"),F.orderBy("criado","desc"),F.limit(12)),s=>cb(s.docs.map(d=>Object.assign({id:d.id},d.data({serverTimestamps:"estimate"})))),err)},
-      remove(id){return F.deleteDoc(F.doc(db,"compras",id))}
+      remove(id){return F.deleteDoc(F.doc(db,"compras",id))},
+      async allCompras(desde){const q=F.query(F.collection(db,"compras"),F.where("dia",">=",desde));const r=await F.getDocs(q);return r.docs.map(d=>Object.assign({id:d.id},d.data()))},
+      updateItens(id,itens){return F.updateDoc(F.doc(db,"compras",id),{itens,corrigido:F.serverTimestamp()})},
+      patchCat(p){return F.setDoc(F.doc(db,"catalogo","itens"),{itens:p},{merge:true})},
+      async estCfg(){const s=await F.getDoc(F.doc(db,"catalogo","estoque"));return s.exists()?(s.data().itens||{}):{}},
+      setEstUnit(k,u){return F.setDoc(F.doc(db,"catalogo","estoque"),{itens:{[k]:{unidade:u}}},{merge:true})}
     };
   })();
   return beP;
@@ -688,7 +737,7 @@ $("saveBtn").addEventListener("click",async()=>{
   $("saveBtn").disabled=true;$("saveBtn").textContent="Salvando…";
   try{
     const cp={}; items.forEach(i=>{if(!i.categoria)return; const d=DEFAULT_CATS[i.categoria]; if(!d||!d.includes(i.subcategoria)){(cp[i.categoria]=cp[i.categoria]||{})[i.subcategoria]=true}});
-    await be.save(compra,patch,cp);
+    await be.save(compra,patch,cp); setTimeout(loadRev,500);
     Object.assign(CAT,patch); items=[]; store.set("draft",null); renderItems(); renderRecent();
     $("cObs").value=""; toast("Compra de "+brl(compra.total)+" salva!"); window.scrollTo({top:0,behavior:"smooth"});
   }catch(err){$("eHead").textContent=err&&err.code==="permission-denied"?"Sua conta não tem permissão para lançar compras.":"Não consegui salvar. Confira a internet e tente de novo; os itens continuam aqui.";}
@@ -713,6 +762,114 @@ $("hist").addEventListener("click",async e=>{
     const l=c.tipo==="avulsa"?"__avulsa":c.loja; loja=l; renderStores(); renderItems(); saveDraft();
     toast("Itens copiados. Confira os valores de hoje antes de salvar."); $("items").scrollIntoView({behavior:"smooth"});}
 });
+
+/* ---------- revisar medidas das compras antigas ---------- */
+let REV={compras:[],est:{},open:{},edit:null,loaded:false};
+const UNITS_ALL=["kg","g","L","ml","un"];
+const bigOf=u=>u==="g"||u==="kg"?"kg":u==="ml"||u==="L"?"L":"un";
+// quantidade da compra na unidade do estoque (null = não converte)
+function toStock(i,su){const q=+i.qtd||0,c=+i.conteudo||0,u=i.unidade||"",bu=bigOf(u),f=u==="g"||u==="ml"?.001:1;
+  if(!(q>0)||!u)return null;
+  if(su==="un"){if(c>0)return bu==="un"?(c>=1?q*c:q):q;return bu==="un"?q:null}
+  if(bu!==su)return null; return c>0?q*c*f:q*f}
+function instBase(i){const u=i.unidade||"";if(!u)return "?";return bigOf(u)+(+i.conteudo>0&&bigOf(u)!=="un"?"":"")}
+function revAnalyze(){
+  const by={};
+  REV.compras.forEach(c=>(c.itens||[]).forEach((i,idx)=>{const k=keyOf(i.nome);(by[k]=by[k]||{k,nome:i.nome,inst:[]}).inst.push({id:c.id,idx,dia:c.dia,loja:c.loja||"",i})}));
+  return Object.values(by).map(g=>{
+    const probs=[], bases=new Set();
+    g.inst.forEach(x=>{const u=x.i.unidade||"",c=+x.i.conteudo||0;
+      if(!u)x.prob="sem unidade";
+      else if(u==="un"&&c>0&&(c<1||c%1))x.prob="conteúdo “"+fmtN(c)+" un” não faz sentido";
+      bases.add(u?(c>0&&u==="un"?"un":bigOf(u)):"?")});
+    const nb=[...bases].filter(x=>x!=="?");
+    const sem=g.inst.filter(x=>x.prob==="sem unidade").length, est=g.inst.filter(x=>x.prob&&x.prob!=="sem unidade").length;
+    if(sem)probs.push(sem+(sem===1?" compra sem unidade":" compras sem unidade"));
+    if(est)probs.push(est+(est===1?" compra com conteúdo estranho":" compras com conteúdo estranho"));
+    if(nb.length>1)probs.push("comprado em "+nb.join(" e em "));
+    const ec=REV.est[g.k]; g.su=ec&&ec.contar?ec.unidade||"":"";
+    if(g.su){const bad=g.inst.filter(x=>x.i.unidade&&toStock(x.i,g.su)==null).length;if(bad)probs.push("o estoque conta em "+g.su+" e "+bad+(bad===1?" compra não converte":" compras não convertem"))}
+    const bOf=x=>x.i.unidade?(+x.i.conteudo>0&&x.i.unidade==="un"?"un":bigOf(x.i.unidade)):"?";
+    const sorted=[...g.inst].sort((a,b)=>(b.dia||"").localeCompare(a.dia||"")), ref=g.su||(sorted.find(x=>bOf(x)!=="?")?bOf(sorted.find(x=>bOf(x)!=="?")):"");
+    g.inst.forEach(x=>{if(x.prob||!x.i.unidade)return;if(g.su&&toStock(x.i,g.su)==null)x.prob="não vira "+g.su+", que é a unidade de contagem do estoque";else if(!g.su&&nb.length>1&&bOf(x)!==ref)x.prob="as outras compras estão em "+ref});
+    const lb=sorted.find(x=>bOf(x)!=="?"); g.lastBase=lb?bOf(lb):"";
+    g.probs=probs; g.bases=nb; g.inst.sort((a,b)=>(b.dia||"").localeCompare(a.dia||"")); return g;
+  }).sort((a,b)=>(b.probs.length?1:0)-(a.probs.length?1:0)||a.nome.localeCompare(b.nome));
+}
+function renderRev(){
+  if(!REV.loaded)return;
+  const all=revAnalyze(), bad=all.filter(g=>g.probs.length), show=$("revAll").checked?all:bad;
+  $("revTop").hidden=!bad.length; $("revTop").textContent="⚠ "+bad.length+(bad.length===1?" item com medida para corrigir nas compras antigas":" itens com medida para corrigir nas compras antigas")+" →";
+  $("revBox").hidden=!all.length; $("revCount").textContent=bad.length||""; $("revCount").hidden=!bad.length;
+  $("revInfo").innerHTML=bad.length?`<b>${bad.length} ${bad.length===1?"item tem":"itens têm"}</b> compras com a medida faltando ou diferente. Corrija aqui para o estoque e o preço por kg/L/un baterem. A compra continua com o mesmo valor; só muda a medida.`:"Todas as compras estão com a medida certa. ✓";
+  $("revList").innerHTML=show.map(g=>{
+    const unOnly=g.inst.filter(x=>x.i.unidade==="un"&&!(+x.i.conteudo>0)).length, op=(g.k in REV.open)?REV.open[g.k]:(g.probs.length&&show.length<=6);
+    return `<div class="rv${g.probs.length?" bad":""}" data-k="${esc(g.k)}">
+    <button type="button" class="rv-h" data-tog="1" aria-expanded="${!!op}"><b>${esc(g.nome)}</b><small>${g.probs.length?g.probs.map(esc).join(" · "):g.inst.length+(g.inst.length===1?" compra":" compras")+" · ok"}</small></button>
+    ${op?`<div class="rv-b">
+      ${g.su&&g.lastBase&&g.lastBase!==g.su&&g.inst.some(x=>x.i.unidade&&toStock(x.i,g.su)==null)?`<p class="rv-tip">O estoque conta este item em <b>${esc(g.su)}</b>, e a última compra foi em <b>${esc(g.lastBase)}</b>. Se faz mais sentido contar em ${esc(g.lastBase)}, troque aqui; depois corrija as compras que ficarem diferentes. <button type="button" class="btn sm" data-estu="${esc(g.lastBase)}">Contar em ${esc(g.lastBase)} no estoque</button></p>`:""}
+      ${unOnly>=1?`<div class="rv-bulk"><span>Cada unidade comprada (${unOnly} ${unOnly===1?"compra":"compras"} em “un”) tem:</span><div class="amt"><input type="text" inputmode="decimal" data-bsize placeholder="Ex.: 500"><select data-bunit>${["g","kg","ml","L","un"].map(u=>`<option>${u}</option>`).join("")}</select><select data-btipo>${TIPOS.map(t=>`<option>${t}</option>`).join("")}</select></div><button type="button" class="btn sm" data-bulk="1">Aplicar nas compras em “un”</button></div>`:""}
+      <ul class="rv-l">${g.inst.map(x=>{const ed=REV.edit&&REV.edit.id===x.id&&REV.edit.idx===x.idx;return `<li${x.prob?' class="p"':""}>
+        <div class="rv-r"><span>${br(x.dia)}${x.loja?" · "+esc(x.loja):""}</span><b>${x.i.unidade?esc(descQ(x.i)):"sem medida ("+fmtN(+x.i.qtd)+")"}</b><em>${brl(x.i.total)}${x.i.unidade?"<small>"+esc(perUnit(x.i))+"</small>":""}</em>
+        ${ed?"":`<button type="button" class="btn sm" data-ed="${esc(x.id)}" data-ix="${x.idx}">Corrigir</button>`}</div>
+        ${x.prob?`<p class="rv-p">${esc(x.prob)}</p>`:""}
+        ${ed?revEditor(x):""}</li>`}).join("")}</ul>
+    </div>`:""}</div>`}).join("")||(bad.length?"":`<p class="sub">Marque “Mostrar todos” para conferir qualquer item.</p>`);
+}
+function revEditor(x){const e=REV.edit;
+  const seg=(name,list,cur)=>`<div class="seg">${list.map(u=>`<button type="button" data-${name}="${u}" aria-checked="${u===cur}">${u}</button>`).join("")}</div>`;
+  let f="";
+  if(e.modo==="peso"||e.modo==="litro")f=`<div class="amt"><input type="text" inputmode="decimal" data-ef="amt" value="${esc(e.amt)}" placeholder="Quantidade">${seg("eu",e.modo==="peso"?["kg","g"]:["L","ml"],e.u)}</div>`;
+  else if(e.modo==="unid")f=`<div class="amt"><input type="text" inputmode="decimal" data-ef="n" value="${esc(e.n)}" placeholder="Quantas"><span class="rv-un">un</span></div>`;
+  else if(e.modo==="emb")f=`<div class="amt"><input type="text" inputmode="decimal" data-ef="n" value="${esc(e.n)}" placeholder="Qtd" style="max-width:70px"><select data-ef="tipo">${TIPOS.map(t=>`<option${t===e.tipo?" selected":""}>${t}</option>`).join("")}</select></div><div class="amt"><span class="rv-un">cada um com</span><input type="text" inputmode="decimal" data-ef="size" value="${esc(e.size)}" placeholder="Ex.: 500">${seg("eu",["kg","g","L","ml","un"],e.u)}</div>`;
+  const prev=revBuild();
+  return `<div class="rv-e"><div class="modes sm">${[["peso","Peso"],["litro","Litro"],["unid","Unidade"],["emb","Embalagem"]].map(([m,l])=>`<button type="button" data-em="${m}" aria-checked="${m===e.modo}"><b>${l}</b></button>`).join("")}</div>${f}
+    <p class="rv-prev">${prev.erro?esc(prev.erro):"Fica: <b>"+esc(descQ(prev))+"</b> · "+esc(perUnit(Object.assign({},prev,{total:x.i.total})))}</p>
+    <div class="row"><button type="button" class="btn solid sm" data-esave="1"${prev.erro?" disabled":""}>Salvar correção</button><button type="button" class="btn sm" data-ecancel="1">Cancelar</button></div></div>`}
+function revBuild(){const e=REV.edit;
+  if(e.modo==="peso"||e.modo==="litro"){const a=num(e.amt);if(!(a>0))return {erro:"Informe a quantidade."};const big=e.modo==="peso"?"kg":"L";return {modo:e.modo,qtd:Math.round((e.u===big?a:a/1000)*1000)/1000,conteudo:null,unidade:big}}
+  const n=num(e.n);if(!(n>0))return {erro:"Informe quantas."};
+  if(e.modo==="unid")return {modo:"unid",qtd:n,conteudo:null,unidade:"un"};
+  const sz=num(e.size);if(!(sz>0))return {erro:"Informe quanto tem em cada "+e.tipo+"."};
+  return {modo:"emb",qtd:n,conteudo:sz,unidade:e.u||"g",embalagem:e.tipo};
+}
+function startEdit(id,idx){const c=REV.compras.find(x=>x.id===id),i=c.itens[idx],m=modoOf(i)||"unid";
+  const q=+i.qtd||0;
+  REV.edit={id,idx,modo:m,amt:m==="peso"||m==="litro"?fmtN(q):"",u:m==="peso"?"kg":m==="litro"?"L":(i.unidade&&+i.conteudo>0?i.unidade:"g"),n:fmtN(q),size:+i.conteudo>0&&!(i.unidade==="un"&&+i.conteudo<1)?fmtN(+i.conteudo):"",tipo:i.embalagem||"pacote"};
+  if(i.unidade==="un"&&+i.conteudo>0&&+i.conteudo<1){REV.edit.modo="emb";REV.edit.size=fmtN(Math.round(+i.conteudo*1000));REV.edit.u="g"}
+  renderRev();}
+async function saveInst(id,idx,fix){
+  const c=REV.compras.find(x=>x.id===id); const itens=c.itens.map((it,j)=>{if(j!==idx)return it;const n=Object.assign({},it,{qtd:fix.qtd,conteudo:fix.conteudo,unidade:fix.unidade,modo:fix.modo});if(fix.embalagem)n.embalagem=fix.embalagem;else delete n.embalagem;return n});
+  await be.updateItens(id,itens); c.itens=itens;
+}
+async function syncCat(k){const g=revAnalyze().find(x=>x.k===k);if(!g)return;const last=g.inst.find(x=>x.i.unidade);if(!last)return;const i=last.i;
+  const p={[k]:Object.assign({},CAT[k]||{nome:i.nome},{unidade:i.unidade,conteudo:+i.conteudo>0?+i.conteudo:null,modo:modoOf(i),embalagem:i.embalagem||null,qtd:i.qtd,total:i.total,preco:Math.round(i.total/i.qtd*100)/100})};
+  try{await be.patchCat(p);CAT[k]=p[k]}catch(e){}}
+$("revAll").addEventListener("change",renderRev);
+$("revList").addEventListener("click",async e=>{
+  const card=e.target.closest(".rv");if(!card)return;const k=card.dataset.k;
+  if(e.target.closest("[data-tog]")){REV.open[k]=!card.querySelector(".rv-b");renderRev();return}
+  const ed=e.target.closest("[data-ed]");if(ed){startEdit(ed.dataset.ed,+ed.dataset.ix);REV.open[k]=true;return}
+  if(e.target.closest("[data-ecancel]")){REV.edit=null;renderRev();return}
+  const em=e.target.closest("[data-em]");if(em){REV.edit.modo=em.dataset.em;REV.edit.u=em.dataset.em==="peso"?"kg":em.dataset.em==="litro"?"L":(REV.edit.u&&!["kg","L"].includes(REV.edit.u)?REV.edit.u:"g");renderRev();return}
+  const eu=e.target.closest("[data-eu]");if(eu){REV.edit.u=eu.dataset.eu;renderRev();return}
+  if(e.target.closest("[data-esave]")){const fix=revBuild();if(fix.erro)return;const {id,idx}=REV.edit;const b=e.target.closest("button");b.disabled=true;
+    try{await saveInst(id,idx,fix);REV.edit=null;await syncCat(k);toast("Medida corrigida");REV.open[k]=true;renderRev()}catch(err){b.disabled=false;toast(err&&err.code==="permission-denied"?"Sem permissão para corrigir.":"Não consegui salvar. Tente de novo.")}return}
+  if(e.target.closest("[data-bulk]")){const sz=num(card.querySelector("[data-bsize]").value),u=card.querySelector("[data-bunit]").value,t=card.querySelector("[data-btipo]").value;
+    if(!(sz>0)){card.querySelector("[data-bsize]").focus();return}
+    const g=revAnalyze().find(x=>x.k===k);const list=g.inst.filter(x=>x.i.unidade==="un"&&!(+x.i.conteudo>0));const b=e.target.closest("button");b.disabled=true;
+    try{for(const x of list)await saveInst(x.id,x.idx,{modo:"emb",qtd:+x.i.qtd,conteudo:sz,unidade:u,embalagem:t});await syncCat(k);toast(list.length+(list.length===1?" compra corrigida":" compras corrigidas"));renderRev()}catch(err){b.disabled=false;toast("Não consegui salvar todas. Tente de novo.")}return}
+  const es=e.target.closest("[data-estu]");if(es){try{await be.setEstUnit(k,es.dataset.estu);REV.est[k]=Object.assign({},REV.est[k],{unidade:es.dataset.estu});toast("O estoque agora conta "+card.querySelector(".rv-h b").textContent+" em "+es.dataset.estu);renderRev()}catch(err){toast("Não consegui mudar o estoque.")}}
+});
+$("revList").addEventListener("input",e=>{const f=e.target.dataset.ef;if(!f||!REV.edit)return;REV.edit[f]=e.target.value;
+  const p=revBuild(), li=e.target.closest("li"), x=REV.compras.find(c=>c.id===REV.edit.id).itens[REV.edit.idx];
+  li.querySelector(".rv-prev").innerHTML=p.erro?esc(p.erro):"Fica: <b>"+esc(descQ(p))+"</b> · "+esc(perUnit(Object.assign({},p,{total:x.total})));li.querySelector("[data-esave]").disabled=!!p.erro});
+$("revList").addEventListener("change",e=>{if(e.target.dataset.ef==="tipo"){REV.edit.tipo=e.target.value;renderRev()}});
+async function loadRev(){
+  if(!be.allCompras)return;
+  try{const d=new Date(Date.now()-200*864e5);const desde=tzDate(d);const [c,est]=await Promise.all([be.allCompras(desde),be.estCfg?be.estCfg().catch(()=>({})):{}]);REV.compras=c;REV.est=est||{};REV.loaded=true;renderRev();
+    if(location.hash==="#revisar")setTimeout(()=>$("revBox").scrollIntoView({behavior:"smooth"}),200)}catch(e){}
+}
 
 /* ---------- avisos ---------- */
 let tT=null;
@@ -740,6 +897,7 @@ let histUnsub=null;
     Object.values(CAT).forEach(x=>addCat(x.categoria,x.subcategoria)); items.forEach(i=>addCat(i.categoria,i.subcategoria));
     setCat("","");
     $("brandList").innerHTML=[...new Set(Object.values(CAT).map(x=>x.marca).filter(Boolean))].map(m=>`<option value="${esc(m)}">`).join("");
+    loadRev();
     if(!histUnsub) histUnsub=be.watchRecent(l=>{recentList=l;renderHist()},()=>{$("hist").innerHTML=`<li class="empty">Não consegui carregar as últimas compras.</li>`});
   });
 })();

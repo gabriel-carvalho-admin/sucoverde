@@ -256,6 +256,42 @@ select:disabled{opacity:.6}
 .resumo{margin:10px 0 0;font-size:.92rem;color:var(--leaf)}
 @media (max-width:420px){.modes{grid-template-columns:repeat(2,1fr)}.modes button{flex-direction:row;gap:6px;min-height:48px}.seg button{padding:0 9px;min-width:36px;font-size:.9rem}}
 p.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px;font-size:inherit}
+
+.rev h2 .bdg{background:#eb6834;color:#fff;border-radius:999px;font-size:.75rem;padding:1px 8px;vertical-align:middle;letter-spacing:0}
+.revall{display:flex;gap:8px;align-items:center;font-weight:700;font-size:.88rem;color:var(--muted);margin:6px 0 4px}
+.rv{border:1px solid var(--line);border-radius:12px;margin-top:8px;background:#fff;overflow:hidden}
+.rv.bad{border-color:#f1c79f}
+.rv-h{width:100%;text-align:left;border:0;background:none;padding:11px 12px;display:block;font:inherit;color:var(--ink);cursor:pointer}
+.rv.bad .rv-h{background:#fdf3e6}
+.rv-h b{display:block}
+.rv-h small{display:block;color:var(--muted);font-weight:600;font-size:.8rem;margin-top:2px}
+.rv.bad .rv-h small{color:#b4541b}
+.rv-b{padding:4px 12px 12px}
+.rv-tip{font-size:.88rem;background:#eef6e6;border-radius:10px;padding:8px 10px;margin:8px 0}
+.rv-tip .btn{margin-top:6px}
+.rv-bulk{background:#f8f4ec;border:1px solid var(--line);border-radius:10px;padding:10px;margin:8px 0;display:grid;gap:6px;font-size:.88rem;font-weight:700}
+.rv-bulk select{width:auto;padding:8px !important;border-radius:10px}
+.rv-l{list-style:none;margin:6px 0 0;padding:0}
+.rv-l li{border-top:1px solid var(--line);padding:9px 0}
+.rv-r{display:grid;grid-template-columns:1fr auto;gap:2px 10px;align-items:center}
+.rv-r span{font-size:.78rem;color:var(--muted);font-weight:700}
+.rv-r b{grid-column:1;font-size:.95rem}
+.rv-r em{grid-column:1;font-style:normal;font-size:.85rem;font-weight:700}
+.rv-r em small{display:inline;color:var(--muted);font-weight:600;margin-left:6px}
+.rv-r .btn{grid-column:2;grid-row:1/4}
+.rv-l li.p .rv-r b{color:#b4541b}
+.rv-p{margin:4px 0 0;font-size:.8rem;color:#b4541b;font-weight:700}
+.rv-e{margin-top:8px;background:#f8f4ec;border-radius:10px;padding:10px;display:grid;gap:8px}
+.rv-e .amt{margin:0;align-items:center}
+.rv-e select{width:auto;padding:8px !important;border-radius:10px}
+.rv-un{font-weight:800;color:var(--muted);font-size:.88rem;white-space:nowrap}
+.modes.sm{grid-template-columns:repeat(4,1fr)}
+.modes.sm button{min-height:38px;padding:6px 2px;flex-direction:row}
+.modes.sm button b{font-size:.85rem}
+.rv-prev{margin:0;font-size:.88rem;color:var(--leaf)}
+.btn.sm{padding:7px 12px;font-size:.85rem}
+@media (max-width:420px){.modes.sm{grid-template-columns:repeat(4,1fr)}.modes.sm button{min-height:38px}}
+.revtop{display:block;margin:12px 0 0;background:#fdf3e6;border:1px solid #f1c79f;border-radius:12px;padding:10px 12px;font-weight:800;color:#b4541b;text-decoration:none;font-size:.9rem}
 .daypick{display:flex;gap:8px;align-items:center}
 .daypick input{flex:1;text-align:center;font-weight:800}
 .daypick .btn{width:48px;height:48px;font-size:1.3rem}
@@ -381,6 +417,8 @@ main.wrap{max-width:760px;padding-bottom:150px}
   .iopts .chk{grid-column:span 2}
   .etile b{font-size:1.15rem}
 }
+.iwarn{margin:8px 0 0;font-size:.82rem;font-weight:700;color:#b4541b;background:#fdf3e6;border-radius:8px;padding:6px 8px}
+.iwarn a,.alerts a{color:var(--leaf);font-weight:800}
 </style>
 </head>
 <body>
@@ -612,11 +650,13 @@ const baseOf=u=>{u=String(u||"").trim();if(u==="g")return["kg",.001];if(u==="kg"
 function fromCompra(i,su){
   const q=+i.qtd||0; if(!(q>0))return null;
   const c=+i.conteudo||0, [bu,f]=baseOf(i.unidade);
-  if(su==="un") return (c>0||bu==="un")?(c>0&&bu==="un"?q*c:q):q;
+  if(!String(i.unidade||"").trim()) return null;
+  if(su==="un"){if(c>0)return bu==="un"?(c>=1?q*c:q):q;return bu==="un"?q:null}
   if(bu!==su) return null;
   return c>0?q*c*f:q*f;
 }
-function defUnit(k){const c=CATI[k];if(!c)return "un";if(+c.conteudo>0)return "un";return baseOf(c.unidade)[0]}
+function defUnit(k){const c=CATI[k];if(!c)return "un";if(c.modo==="peso")return "kg";if(c.modo==="litro")return "L";if(c.modo==="unid"||c.modo==="emb")return "un";if(+c.conteudo>0)return "un";return baseOf(c.unidade)[0]}
+function badCompras(k){const su=icfg(k).unidade,desde=addDays(TODAY,-60);let n=0;COMPRAS.forEach(c=>{if(c.dia<desde)return;(c.itens||[]).forEach(i=>{if(keyOf(i.nome)===k&&fromCompra(i,su)==null)n++})});return n}
 function icfg(k){const c=CFG.itens&&CFG.itens[k]||{};const ca=CATI[k]||{};
   return {nome:c.nome||ca.nome||k,unidade:c.unidade||defUnit(k),local:c.local||"Outro",minimo:c.minimo==null?null:+c.minimo,ideal:c.ideal==null?null:+c.ideal,perecivel:!!c.perecivel,contar:!!c.contar,categoria:c.categoria||ca.categoria||"Outros",loja:c.loja||""}}
 function priceOf(k){
@@ -641,7 +681,8 @@ function weekRows(cnt){
   const prev=prevOf(cnt.dia), rows=[];
   const keys=new Set([...Object.keys(cnt.itens||{}),...(prev?Object.keys(prev.itens||{}):[])]);
   keys.forEach(k=>{
-    const now=cnt.itens&&cnt.itens[k], was=prev&&prev.itens&&prev.itens[k];
+    const now=cnt.itens&&cnt.itens[k]; let was=prev&&prev.itens&&prev.itens[k];
+    const unMud=!!(was&&now&&was.unidade&&now.unidade&&was.unidade!==now.unidade); if(unMud)was=null;
     if(!now&&!(CFG.itens&&CFG.itens[k]&&CFG.itens[k].contar))return;
     const cq=prev?comprasQ(k,prev.dia,cnt.dia):{q:0,ok:true}, pq=prev?perdasQ(k,prev.dia,cnt.dia):0;
     const esperado=was&&cq.ok?r3((+was.qtd||0)+cq.q-pq):null;
@@ -651,7 +692,7 @@ function weekRows(cnt){
     const f=fechadas().filter(c=>c.dia<cnt.dia), hist=[];
     for(let i=f.length-1;i>0&&hist.length<4;i--){const A=f[i-1],B=f[i];const x=A.itens&&A.itens[k],y=B.itens&&B.itens[k];if(!x||!y)continue;const c2=comprasQ(k,A.dia,B.dia);if(!c2.ok)continue;hist.push((+x.qtd||0)+c2.q-perdasQ(k,A.dia,B.dia)-(+y.qtd||0))}
     const media=hist.length?hist.reduce((a,b)=>a+b,0)/hist.length:null;
-    rows.push({k,nome:(now||was||{}).nome||icfg(k).nome,un:(now||was||{}).unidade||icfg(k).unidade,ant:was?+was.qtd:null,compras:cq.q,comprasOk:cq.ok,perdas:pq,esperado,contado,cons,preco,valor:cons!=null?r2(cons*preco):null,media});
+    rows.push({unMud,k,nome:(now||was||{}).nome||icfg(k).nome,un:(now||was||{}).unidade||icfg(k).unidade,ant:was?+was.qtd:null,compras:cq.q,comprasOk:cq.ok,perdas:pq,esperado,contado,cons,preco,valor:cons!=null?r2(cons*preco):null,media});
   });
   return {prev,rows:rows.sort((a,b)=>(b.valor||0)-(a.valor||0)||a.nome.localeCompare(b.nome))};
 }
@@ -784,7 +825,8 @@ function renderResult(){
   rows.forEach(r=>{
     if(r.cons!=null&&r.cons<-0.001) al.push(`<li class="up"><b>${esc(r.nome)}</b>: sobrou ${fmtN(-r.cons)} ${esc(r.un)} a mais do que o esperado. Alguma compra não foi lançada ou a contagem anterior ficou baixa?</li>`);
     else if(r.cons!=null&&r.media!=null&&r.media>0&&r.cons>r.media*1.4&&r.valor>5) al.push(`<li><b>${esc(r.nome)}</b>: consumo de ${fmtN(r.cons)} ${esc(r.un)}, ${Math.round((r.cons/r.media-1)*100)}% acima da média (${fmtN(r3(r.media))}). Vendeu mais ou teve desperdício?</li>`);
-    if(!r.comprasOk) al.push(`<li class="info"><b>${esc(r.nome)}</b>: uma compra está em unidade diferente (${esc(r.un)}), então o esperado não foi calculado. Ajuste a unidade na aba Itens.</li>`);
+    if(!r.comprasOk) al.push(`<li class="info"><b>${esc(r.nome)}</b>: uma compra da semana está sem medida ou em unidade que não vira ${esc(r.un)}, então o esperado não foi calculado. <a href="../compras/#revisar">Corrigir a medida nas compras</a></li>`);
+    if(r.unMud) al.push(`<li class="info"><b>${esc(r.nome)}</b>: a unidade de contagem mudou desde a semana passada, então esta semana não tem comparação. A partir da próxima volta ao normal.</li>`);
   });
   $("rAlerts").innerHTML=al.join(""); $("rAlertBox").hidden=!al.length;
   $("rTable").innerHTML=`<thead><tr><th>Item</th><th class="num">Anterior</th><th class="num">+ Compras</th><th class="num">− Perdas</th><th class="num">Esperado</th><th class="num">Contado</th><th class="num">Consumo</th><th class="num">R$</th></tr></thead><tbody>`+
@@ -866,6 +908,7 @@ function renderItens(){
   const on=active().length; $("iInfo").textContent=on+(on===1?" item na contagem":" itens na contagem")+(on?"":" · comece ligando os de maior gasto");
   $("iList").innerHTML=keys.map(k=>{const c=icfg(k);return `<div class="irow${c.contar?" on":""}" data-k="${esc(k)}">
     <label class="itog"><input type="checkbox" data-f="contar"${c.contar?" checked":""}><span><b>${esc(c.nome)}</b><small>${esc(c.categoria)}${sp[k]?" · "+brl(sp[k])+" em 60 dias":""}</small></span></label>
+    ${c.contar&&badCompras(k)?`<p class="iwarn">${badCompras(k)} ${badCompras(k)===1?"compra não converte":"compras não convertem"} para ${esc(c.unidade)} (sem medida ou em outra unidade). <a href="../compras/#revisar">Corrigir nas compras</a> ou troque a unidade abaixo.</p>`:""}
     ${c.contar?`<div class="iopts">
       <label>Unidade<select data-f="unidade">${["un","kg","L"].map(u=>`<option${u===c.unidade?" selected":""}>${u}</option>`).join("")}</select></label>
       <label>Local<select data-f="local">${LOCAIS.map(u=>`<option${u===c.local?" selected":""}>${u}</option>`).join("")}</select></label>
