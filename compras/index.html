@@ -198,9 +198,6 @@ input[type=text],input[type=date],input[type=password],select{width:100%;font:in
 .stepper2{display:flex;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff}
 .stepper2 button{border:0;background:var(--card);width:48px;font-size:1.4rem;font-weight:800;color:var(--leaf)}
 .stepper2 input{border:0 !important;border-radius:0 !important;text-align:center;min-width:0}
-.units{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:10px}
-.units button{border:1px solid var(--line);background:#fff;border-radius:12px;padding:12px 0;font-weight:800;font-size:1rem;color:var(--ink)}
-.units button[aria-checked=true]{background:var(--leaf);border-color:var(--leaf);color:#fff}
 .money{display:flex;gap:8px}
 .money input{flex:1}
 .money .btn{white-space:nowrap;font-size:.85rem}
@@ -233,6 +230,32 @@ button.rm{color:var(--danger)}
 .catchip{display:inline-block;margin-left:6px;background:#eef6e6;color:var(--leaf);font-size:.72rem;font-weight:800;border-radius:6px;padding:1px 7px;vertical-align:2px}
 .newcat{margin-top:4px;background:#f4f9ee;border:1px solid #d5e8c4;border-radius:12px;padding:4px 10px 10px}
 select:disabled{opacity:.6}
+
+.modes{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.modes button{border:1.5px solid var(--line);background:#fff;border-radius:14px;padding:10px 4px;color:var(--ink);display:flex;flex-direction:column;align-items:center;gap:2px;min-height:62px;justify-content:center}
+.modes button b{font-size:1rem}
+.modes button small{font-size:.72rem;color:var(--muted);font-weight:600;line-height:1.15;text-align:center}
+.modes button[aria-checked=true]{background:var(--leaf);border-color:var(--leaf);color:#fff}
+.modes button[aria-checked=true] small{color:#dcefd0}
+.mbox{margin-top:10px;padding:12px;border-radius:14px;background:#f8f4ec;border:1px solid var(--line)}
+.mbox>.lbl:first-child{margin-top:0}
+.amt{display:flex;gap:8px;align-items:stretch;margin-top:6px}
+.amt input{flex:1;min-width:0;font-size:1.15rem !important;font-weight:800;text-align:center}
+.seg{display:flex;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff;flex:none}
+.seg button{border:0;background:#fff;padding:0 13px;font-weight:800;font-size:.98rem;color:var(--ink);min-width:44px}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-checked=true]{background:var(--leaf);color:#fff}
+.quick{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.quick:empty{display:none}
+.quick button{border:1px solid var(--line);background:#fff;border-radius:999px;padding:6px 12px;font-weight:700;font-size:.85rem;color:var(--bark)}
+.quick.tipos{margin:6px 0 4px}
+.quick.tipos button[aria-pressed=true]{background:var(--bark);border-color:var(--bark);color:#fff}
+#boxEmb+#boxQty{margin-top:6px}
+.mbox .stepper2{margin-top:6px}
+.stepper2 input{font-size:1.15rem !important;font-weight:800}
+.resumo{margin:10px 0 0;font-size:.92rem;color:var(--leaf)}
+@media (max-width:420px){.modes{grid-template-columns:repeat(2,1fr)}.modes button{flex-direction:row;gap:6px;min-height:48px}.seg button{padding:0 9px;min-width:36px;font-size:.9rem}}
+p.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px;font-size:inherit}
 </style>
 </head>
 <body>
@@ -311,19 +334,37 @@ select:disabled{opacity:.6}
     <input type="text" id="iBrand" list="brandList" autocomplete="off">
     <datalist id="brandList"></datalist>
 
-    <div class="two">
-      <div>
-        <label class="lbl" for="iQty">Qtd de embalagens</label>
-        <div class="stepper2"><button type="button" data-q="-1" aria-label="Menos uma">−</button><input type="text" id="iQty" inputmode="decimal" value="1"><button type="button" data-q="1" aria-label="Mais uma">+</button></div>
-      </div>
-      <div>
-        <label class="lbl" for="iSize">Conteúdo de cada</label>
-        <input type="text" id="iSize" inputmode="decimal" placeholder="Ex.: 5">
-      </div>
+    <p class="lbl">Como foi comprado?</p>
+    <div class="modes" id="modes" role="radiogroup" aria-label="Como foi comprado">
+      <button type="button" role="radio" data-m="peso"><b>Peso</b><small>kg ou g</small></button>
+      <button type="button" role="radio" data-m="litro"><b>Litro</b><small>L ou ml</small></button>
+      <button type="button" role="radio" data-m="unid"><b>Unidade</b><small>un, dúzia</small></button>
+      <button type="button" role="radio" data-m="emb"><b>Embalagem</b><small>pacote, caixa, fardo</small></button>
     </div>
-    <div class="units" id="units" role="radiogroup" aria-label="Unidade do conteúdo">
-      <button type="button" role="radio" data-u="kg">kg</button><button type="button" role="radio" data-u="g">g</button><button type="button" role="radio" data-u="L">L</button><button type="button" role="radio" data-u="ml">ml</button><button type="button" role="radio" data-u="un">un</button>
+
+    <div class="mbox" id="boxAmt" hidden>
+      <label class="lbl" for="iAmt" id="amtLbl">Quanto pesou?</label>
+      <div class="amt"><input type="text" id="iAmt" inputmode="decimal" placeholder="Ex.: 3,5">
+        <div class="seg" id="amtUn" role="radiogroup" aria-label="Unidade"></div></div>
+      <div class="quick" id="amtQuick"></div>
     </div>
+
+    <div class="mbox" id="boxEmb" hidden>
+      <p class="lbl">Tipo de embalagem</p>
+      <div class="quick tipos" id="embTipo"></div>
+      <label class="lbl" for="iSize" id="sizeLbl">Cada pacote tem</label>
+      <div class="amt"><input type="text" id="iSize" inputmode="decimal" placeholder="Ex.: 5">
+        <div class="seg" id="units" role="radiogroup" aria-label="Unidade do conteúdo">
+          <button type="button" role="radio" data-u="kg">kg</button><button type="button" role="radio" data-u="g">g</button><button type="button" role="radio" data-u="L">L</button><button type="button" role="radio" data-u="ml">ml</button><button type="button" role="radio" data-u="un">un</button>
+        </div></div>
+    </div>
+    <div class="mbox" id="boxQty" hidden>
+      <label class="lbl" for="iQty" id="qtyLbl">Quantas unidades?</label>
+      <div class="stepper2"><button type="button" data-q="-1" aria-label="Menos uma">−</button><input type="text" id="iQty" inputmode="decimal" value="1"><button type="button" data-q="1" aria-label="Mais uma">+</button></div>
+      <div class="quick" id="qtyQuick"></div>
+    </div>
+
+    <p class="resumo" id="mResumo" hidden></p>
 
     <label class="lbl" for="iTotal">Valor total pago no item (R$)</label>
     <div class="money"><input type="text" id="iTotal" inputmode="decimal" placeholder="Ex.: 49,80"><button type="button" class="btn" id="useLast" hidden>Usar último preço</button></div>
@@ -409,7 +450,7 @@ const store={get(k,d){try{const v=localStorage.getItem("svc_"+k);return v?JSON.p
 let CAT={};
 let CATS=JSON.parse(JSON.stringify(DEFAULT_CATS));
 function addCat(c,sc){if(!c)return;if(!CATS[c])CATS[c]=[];if(sc&&!CATS[c].includes(sc))CATS[c].push(sc)}           // banco de itens: chave -> {nome, marca, unidade, conteudo, preco (por embalagem), loja, dia, vezes}
-let loja=store.get("loja",""), items=[], unit="", editIdx=-1;
+let loja=store.get("loja",""), items=[], unit="", editIdx=-1, modo="", amtU="kg", embTipo="pacote";
 const draft=store.get("draft",null);
 if(draft&&Array.isArray(draft.items)&&draft.items.length){items=draft.items; if(draft.loja) loja=draft.loja}
 
@@ -454,18 +495,18 @@ function pickAc(li){
 function choose(it){
   $("iName").value=it.nome; $("acList").hidden=true; $("iName").setAttribute("aria-expanded","false");
   applyLast(it);
-  if(it.conteudo) $("iTotal").focus(); else $("iSize").focus();
+  setTimeout(()=>{if(modo==="peso"||modo==="litro")$("iAmt").focus();else if(modo==="unid"||(modo==="emb"&&$("iSize").value))$("iQty").select();else if(modo==="emb")$("iSize").focus()},0);
 }
 function applyLast(it){
   const k=it?keyOf(it.nome):keyOf($("iName").value), c=CAT[k];
-  if(it&&it.unidade) setUnit(it.unidade);
+  const ref=c||it; if(ref){const m=modoOf(ref);embTipo=ref.embalagem||"pacote";if(m==="emb"){$("iSize").value=+ref.conteudo>0?fmtN(+ref.conteudo):"";setUnit(ref.unidade||"")}$("iAmt").value="";$("iQty").value="1";setModo(m)}
   const src=c&&c.categoria?c:it;
   setCat(src&&src.categoria||"",src&&src.subcategoria||"");
   if(c){
-    $("iBrand").value=c.marca||""; if(c.conteudo) $("iSize").value=fmtN(c.conteudo); if(c.unidade) setUnit(c.unidade);
+    $("iBrand").value=c.marca||"";
     $("lastBox").hidden=false;
-    $("lastBox").innerHTML=`Última compra: <b>${fmtN(c.qtd||1)} × ${c.conteudo?fmtN(c.conteudo)+" "+esc(c.unidade||""):"embalagem"}</b> por <b>${brl(c.total||c.preco||0)}</b>${c.loja?" no "+esc(c.loja):""}${c.dia?" em "+br(c.dia):""}${c.preco?` · <b>${brl(c.preco)}</b> cada`:""}`;
-    $("useLast").hidden=!c.preco;
+    $("lastBox").innerHTML=`Última compra: <b>${esc(descQ(c))}</b> por <b>${brl(c.total||c.preco||0)}</b>${c.loja?" no "+esc(c.loja):""}${c.dia?" em "+br(c.dia):""}${c.total?` · <b>${esc(perUnit(c))}</b>`:""}`;
+    $("useLast").hidden=!(c.preco||c.total);
   } else { $("lastBox").hidden=true; $("useLast").hidden=true; }
   calc();
 }
@@ -486,32 +527,91 @@ function renderRecent(){
 }
 $("recent").addEventListener("click",e=>{const b=e.target.closest("button[data-k]");if(!b)return;const c=CAT[b.dataset.k];if(c)choose(c)});
 
-function setUnit(u){unit=u;document.querySelectorAll("#units button").forEach(b=>b.setAttribute("aria-checked",b.dataset.u===u));calc()}
-$("units").addEventListener("click",e=>{const b=e.target.closest("button[data-u]");if(b){setUnit(b.dataset.u);$("iTotal").focus()}});
-document.querySelector(".stepper2").addEventListener("click",e=>{const b=e.target.closest("button[data-q]");if(!b)return;let q=num($("iQty").value);if(isNaN(q))q=0;q=Math.max(1,q+(+b.dataset.q));$("iQty").value=fmtN(q);calc()});
-["iQty","iSize","iTotal"].forEach(id=>$(id).addEventListener("input",calc));
-$("useLast").addEventListener("click",()=>{const c=CAT[keyOf($("iName").value)];if(!c||!c.preco)return;let q=num($("iQty").value);if(isNaN(q)||q<=0)q=1;$("iTotal").value=r2(c.preco*q).toFixed(2).replace(".",",");calc()});
-
-function perUnit(q,size,u,total){
-  if(!(total>0)||!(q>0)) return "";
-  const each=total/q; let s=brl(each)+" cada embalagem";
-  if(size>0&&u){
-    let base=size*q, lab=u;
-    if(u==="g"){base=base/1000;lab="kg"} else if(u==="ml"){base=base/1000;lab="L"}
-    s+=" · "+brl(total/base)+" por "+lab;
+/* ---------- medida: peso, litro, unidade ou embalagem ---------- */
+const TIPOS=["pacote","caixa","fardo","saco","pote","garrafa","bandeja","lata"];
+const PLUR={pacote:"pacotes",caixa:"caixas",fardo:"fardos",saco:"sacos",pote:"potes",garrafa:"garrafas",bandeja:"bandejas",lata:"latas"};
+const tipoN=(t,n)=>n===1?t:(PLUR[t]||t+"s");
+function modoOf(c){if(!c)return "";if(c.modo)return c.modo;if(+c.conteudo>0)return "emb";const u=c.unidade||"";if(u==="kg")return "peso";if(u==="L")return "litro";if(u==="g"||u==="ml")return "emb";if(u==="un")return "unid";return ""}
+function setModo(m){
+  modo=m; document.querySelectorAll("#modes button").forEach(b=>b.setAttribute("aria-checked",b.dataset.m===m));
+  $("boxAmt").hidden=!(m==="peso"||m==="litro"); $("boxQty").hidden=!(m==="unid"||m==="emb"); $("boxEmb").hidden=m!=="emb";
+  if(m==="peso"||m==="litro"){
+    const us=m==="peso"?["kg","g"]:["L","ml"]; if(!us.includes(amtU))amtU=us[0];
+    $("amtLbl").textContent=m==="peso"?"Quanto pesou?":"Quantos litros?"; $("iAmt").placeholder=m==="peso"?"Ex.: 3,5":"Ex.: 5";
+    $("amtUn").innerHTML=us.map(u=>`<button type="button" role="radio" data-au="${u}" aria-checked="${u===amtU}">${u}</button>`).join("");
+    renderAmtQuick();
   }
-  return s;
+  if(m==="unid"){$("qtyLbl").textContent="Quantas unidades?";$("qtyQuick").innerHTML=[["6","meia dúzia"],["12","1 dúzia"],["24","2 dúzias"],["30","bandeja (30)"]].map(([v,l])=>`<button type="button" data-qv="${v}">${l}</button>`).join("")}
+  if(m==="emb"){$("qtyQuick").innerHTML="";renderTipos()}
+  calc();
+}
+function renderAmtQuick(){const v=modo==="peso"?(amtU==="kg"?["0,5","1","2","5","10"]:["100","200","500"]):(amtU==="L"?["1","2","5","10"]:["200","500","900"]);
+  $("amtQuick").innerHTML=v.map(x=>`<button type="button" data-av="${x}">${x} ${amtU}</button>`).join("")}
+function renderTipos(){$("embTipo").innerHTML=TIPOS.map(t=>`<button type="button" data-t="${t}" aria-pressed="${t===embTipo}">${t[0].toUpperCase()+t.slice(1)}</button>`).join("");$("sizeLbl").textContent="Cada "+embTipo+" tem";$("qtyLbl").textContent="Quantos "+tipoN(embTipo,2)+"?"}
+function setUnit(u){unit=u;document.querySelectorAll("#units button").forEach(b=>b.setAttribute("aria-checked",b.dataset.u===u));calc()}
+$("modes").addEventListener("click",e=>{const b=e.target.closest("[data-m]");if(!b)return;setModo(b.dataset.m);$("eItem").textContent="";setTimeout(()=>{if(modo==="peso"||modo==="litro")$("iAmt").focus();else if(modo==="emb")$("iSize").focus();else $("iQty").select()},0)});
+$("amtUn").addEventListener("click",e=>{const b=e.target.closest("[data-au]");if(!b)return;amtU=b.dataset.au;$("amtUn").querySelectorAll("[data-au]").forEach(x=>x.setAttribute("aria-checked",x===b));renderAmtQuick();calc();$("iAmt").focus()});
+$("amtQuick").addEventListener("click",e=>{const b=e.target.closest("[data-av]");if(!b)return;$("iAmt").value=b.dataset.av;calc();$("iTotal").focus()});
+$("qtyQuick").addEventListener("click",e=>{const b=e.target.closest("[data-qv]");if(!b)return;$("iQty").value=b.dataset.qv;calc();$("iTotal").focus()});
+$("embTipo").addEventListener("click",e=>{const b=e.target.closest("[data-t]");if(!b)return;embTipo=b.dataset.t;renderTipos();calc()});
+$("units").addEventListener("click",e=>{const b=e.target.closest("button[data-u]");if(b){setUnit(b.dataset.u);$("iQty").select()}});
+document.querySelector(".stepper2").addEventListener("click",e=>{const b=e.target.closest("button[data-q]");if(!b)return;let q=num($("iQty").value);if(isNaN(q))q=0;q=Math.max(1,q+(+b.dataset.q));$("iQty").value=fmtN(q);calc()});
+["iQty","iSize","iTotal","iAmt"].forEach(id=>$(id).addEventListener("input",calc));
+$("iAmt").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();$("iTotal").focus()}});
+$("iQty").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();$("iTotal").focus()}});
+$("iSize").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();$("iQty").select()}});
+$("iTotal").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();addItem()}});
+$("iBrand").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();e.target.blur()}});
+
+// medida da tela -> {modo, qtd, conteudo, unidade, embalagem} ou {erro}
+function medida(){
+  if(!modo) return {erro:"Escolha como foi comprado: peso, litro, unidade ou embalagem."};
+  if(modo==="peso"||modo==="litro"){const a=num($("iAmt").value);if(!(a>0))return {erro:modo==="peso"?"Informe quanto pesou.":"Informe quantos litros."};
+    const big=modo==="peso"?"kg":"L", q=amtU===big?a:a/1000; return {modo,qtd:Math.round(q*1000)/1000,conteudo:null,unidade:big}}
+  const n=num($("iQty").value);
+  if(modo==="unid"){if(!(n>0))return {erro:"Informe quantas unidades."};return {modo,qtd:n,conteudo:null,unidade:"un"}}
+  const sz=num($("iSize").value); if(!(sz>0)) return {erro:"Informe quanto tem em cada "+embTipo+"."}; if(!unit) return {erro:"Escolha a unidade do conteúdo (kg, g, L, ml ou un)."};
+  if(!(n>0)) return {erro:"Informe quantos "+tipoN(embTipo,2)+"."};
+  return {modo,qtd:n,conteudo:sz,unidade:unit,embalagem:embTipo};
+}
+// texto da quantidade de um item
+function descQ(i){const m=modoOf(i);
+  if(m==="peso"||m==="litro"){const q=+i.qtd||0,u=i.unidade==="g"||i.unidade==="ml"?i.unidade:(m==="peso"?"kg":"L");return q<1&&(u==="kg"||u==="L")?fmtN(Math.round(q*1000))+" "+(u==="kg"?"g":"ml"):fmtN(q)+" "+u}
+  if(m==="unid"||!(+i.conteudo>0)) return fmtN(+i.qtd||0)+" un";
+  return fmtN(+i.qtd)+" "+(i.embalagem?tipoN(i.embalagem,+i.qtd):(+i.qtd===1?"embalagem":"embalagens"))+" de "+fmtN(+i.conteudo)+" "+i.unidade}
+// quantidade total em kg, L ou un
+function baseQ(i){const c=+i.conteudo||0,q=+i.qtd||0,u=i.unidade||"";const f=u==="g"||u==="ml"?.001:1,lab=u==="g"?"kg":u==="ml"?"L":(u||"un");return {v:c>0?q*c*f:q*f,u:lab}}
+function perUnit(i){
+  const t=+i.total||0; if(!(t>0)||!(+i.qtd>0)) return "";
+  const m=modoOf(i), b=baseQ(i);
+  if(m==="emb"&&+i.conteudo>0){let s=brl(t/i.qtd)+" cada "+(i.embalagem||"embalagem");if(b.v>0)s+=" · "+brl(t/b.v)+" por "+b.u;return s}
+  if(m==="unid"||b.u==="un") return brl(t/i.qtd)+" cada";
+  return b.v>0?brl(t/b.v)+" por "+b.u:"";
 }
 function calc(){
-  const q=num($("iQty").value), size=num($("iSize").value), t=num($("iTotal").value);
-  let s=perUnit(q,size,unit,t);
+  const md=medida(), t=num($("iTotal").value);
+  if(md.erro){$("mResumo").hidden=true;$("calc").innerHTML="";return}
+  const it=Object.assign({},md,{total:t>0?t:0}), b=baseQ(it);
+  $("mResumo").hidden=false;
+  $("mResumo").innerHTML="<b>"+esc(descQ(it))+"</b>"+(md.modo==="emb"&&b.v>0&&md.unidade!=="un"||md.modo==="emb"&&md.qtd>1?" = "+fmtN(Math.round(b.v*1000)/1000)+" "+b.u+" no total":"");
+  let s=t>0?perUnit(it):"";
   const c=CAT[keyOf($("iName").value)];
-  if(s&&c&&c.preco&&q>0){const d=(t/q)/c.preco-1;if(Math.abs(d)>=0.01)s+=` · <span class="${d>0?"up":"down"}">${d>0?"▲":"▼"} ${Math.abs(d*100).toFixed(0)}% ${d>0?"mais caro":"mais barato"} que a última vez</span>`}
+  if(s&&c&&+c.qtd>0){const bo=baseQ(c),po=bo.v>0?(+c.total||(+c.preco||0)*c.qtd)/bo.v:0,pn=b.v>0?t/b.v:0;
+    if(po>0&&pn>0&&bo.u===b.u){const d=pn/po-1;if(Math.abs(d)>=0.01)s+=` · <span class="${d>0?"up":"down"}">${d>0?"▲":"▼"} ${Math.abs(d*100).toFixed(0)}% ${d>0?"mais caro":"mais barato"} que a última vez</span>`}}
   $("calc").innerHTML=s;
 }
-$("iTotal").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();addItem()}});
-$("iSize").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();$("iTotal").focus()}});
-$("iBrand").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();$("iSize").focus()}});
+function fillMedida(i){
+  const m=modoOf(i);
+  if(m==="peso"||m==="litro"){const q=+i.qtd||0,small=m==="peso"?"g":"ml";amtU=(i.unidade===small||(q>0&&q<1))?small:(m==="peso"?"kg":"L");setModo(m);$("iAmt").value=q?fmtN(amtU===small&&i.unidade!==small?Math.round(q*1000):q):""}
+  else if(m==="unid"){setModo(m);$("iQty").value=fmtN(+i.qtd||1)}
+  else if(m==="emb"){embTipo=i.embalagem||"pacote";setModo(m);$("iQty").value=fmtN(+i.qtd||1);$("iSize").value=i.conteudo?fmtN(+i.conteudo):"";setUnit(i.unidade||"")}
+  else setModo("");
+  calc();
+}
+$("useLast").addEventListener("click",()=>{const c=CAT[keyOf($("iName").value)];if(!c||!(c.total||c.preco))return;const md=medida();
+  const bo=baseQ(c),po=bo.v>0?(+c.total||(+c.preco||0)*c.qtd)/bo.v:0; let v=+c.total||+c.preco;
+  if(!md.erro){const b=baseQ(md);if(po>0&&b.u===bo.u)v=po*b.v}
+  $("iTotal").value=r2(v).toFixed(2).replace(".",",");calc()});
 
 /* ---------- categoria e subcategoria ---------- */
 let newMode=null;
@@ -538,19 +638,17 @@ function confirmNew(){
 $("newCatOk").addEventListener("click",confirmNew);
 $("newCat").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();confirmNew()}if(e.key==="Escape")$("newCatX").click()});
 
-function resetItem(){$("iName").value="";$("iBrand").value="";$("iQty").value="1";$("iSize").value="";$("iTotal").value="";$("calc").innerHTML="";$("lastBox").hidden=true;$("useLast").hidden=true;setUnit("");setCat("","");closeNew();editIdx=-1;$("addItem").textContent="+ Adicionar item"}
+function resetItem(){$("iName").value="";$("iBrand").value="";$("iQty").value="1";$("iSize").value="";$("iAmt").value="";$("iTotal").value="";$("calc").innerHTML="";$("lastBox").hidden=true;$("useLast").hidden=true;setUnit("");embTipo="pacote";setModo("");setCat("","");closeNew();editIdx=-1;$("addItem").textContent="+ Adicionar item"}
 function addItem(){
-  const nome=$("iName").value.trim().replace(/^./,c=>c.toUpperCase()), q=num($("iQty").value), size=num($("iSize").value), t=num($("iTotal").value);
+  const nome=$("iName").value.trim().replace(/^./,c=>c.toUpperCase()), md=medida(), t=num($("iTotal").value);
   let err="";
   if(!nome) err="Escreva o nome do produto.";
-  else if(!(q>0)) err="Informe a quantidade de embalagens.";
+  else if(md.erro) err=md.erro;
   else if(!(t>0)) err="Informe quanto pagou neste item.";
-  else if($("iSize").value.trim()&&!(size>0)) err="Confira o conteúdo de cada embalagem.";
-  else if(size>0&&!unit) err="Escolha a unidade (kg, g, L, ml ou un).";
   else if(!$("iCat").value||$("iCat").value==="__new") err="Escolha a categoria do item.";
   else if(!$("iSub").value||$("iSub").value==="__new") err="Escolha a subcategoria do item.";
   if(err){$("eItem").textContent=err;return}
-  const it={nome,categoria:$("iCat").value,subcategoria:$("iSub").value,marca:$("iBrand").value.trim(),qtd:q,conteudo:size>0?size:null,unidade:size>0?unit:(unit||""),total:r2(t)};
+  const it={nome,categoria:$("iCat").value,subcategoria:$("iSub").value,marca:$("iBrand").value.trim(),qtd:md.qtd,conteudo:md.conteudo,unidade:md.unidade,modo:md.modo,...(md.embalagem?{embalagem:md.embalagem}:{}),total:r2(t)};
   if(editIdx>=0) items[editIdx]=it; else items.push(it);
   $("eItem").textContent=""; resetItem(); renderItems(); saveDraft();
   toast(nome+" adicionado"); $("iName").focus();
@@ -562,7 +660,7 @@ const total=()=>items.reduce((a,i)=>a+i.total,0);
 function renderItems(){
   $("items").innerHTML=items.length?items.map((i,k)=>`<li>
     <div class="it-main"><b>${esc(i.nome)}</b>${i.marca?` <span class="brand">${esc(i.marca)}</span>`:""}${i.categoria?`<span class="catchip">${esc(i.categoria)} › ${esc(i.subcategoria||"")}</span>`:""}
-      <small>${fmtN(i.qtd)} × ${i.conteudo?fmtN(i.conteudo)+" "+esc(i.unidade):"un"} · ${esc(perUnit(i.qtd,i.conteudo,i.unidade,i.total))}</small></div>
+      <small>${esc(descQ(i))} · ${esc(perUnit(i))}</small></div>
     <b class="it-t">${brl(i.total)}</b>
     <div class="it-act"><button type="button" data-ed="${k}">Editar</button><button type="button" data-rm="${k}" class="rm">Remover</button></div></li>`).join(""):`<li class="empty">Nenhum item ainda.</li>`;
   const n=items.length;
@@ -572,7 +670,7 @@ function renderItems(){
 $("items").addEventListener("click",e=>{
   const ed=e.target.closest("[data-ed]"), rm=e.target.closest("[data-rm]");
   if(rm){items.splice(+rm.dataset.rm,1);renderItems();saveDraft();return}
-  if(ed){closeNew();const i=items[+ed.dataset.ed];editIdx=+ed.dataset.ed;$("iName").value=i.nome;$("iBrand").value=i.marca||"";setCat(i.categoria||"",i.subcategoria||"");$("iQty").value=fmtN(i.qtd);$("iSize").value=i.conteudo?fmtN(i.conteudo):"";setUnit(i.unidade||"");$("iTotal").value=i.total.toFixed(2).replace(".",",");calc();$("addItem").textContent="Salvar alteração";$("itemCard").scrollIntoView({behavior:"smooth"});}
+  if(ed){closeNew();const i=items[+ed.dataset.ed];editIdx=+ed.dataset.ed;$("iName").value=i.nome;$("iBrand").value=i.marca||"";setCat(i.categoria||"",i.subcategoria||"");fillMedida(i);$("iTotal").value=i.total.toFixed(2).replace(".",",");calc();$("addItem").textContent="Salvar alteração";$("itemCard").scrollIntoView({behavior:"smooth"});}
 });
 function saveDraft(){store.set("draft",{items,loja})}
 
@@ -584,9 +682,9 @@ $("saveBtn").addEventListener("click",async()=>{
   const dia=$("cDate").value||tzDate(new Date());
   const lojaNome=loja==="__avulsa"?"Avulsa":loja;
   const compra={dia,tipo:loja==="__avulsa"?"avulsa":"loja",loja:lojaNome,pagamento:$("cPay").value,obs:$("cObs").value.trim(),total:r2(total()),
-    itens:items.map(i=>({nome:i.nome,categoria:i.categoria||"Outros",subcategoria:i.subcategoria||"Diversos",marca:i.marca,qtd:i.qtd,conteudo:i.conteudo,unidade:i.unidade,total:i.total}))};
+    itens:items.map(i=>({nome:i.nome,categoria:i.categoria||"Outros",subcategoria:i.subcategoria||"Diversos",marca:i.marca,qtd:i.qtd,conteudo:i.conteudo,unidade:i.unidade,modo:i.modo||modoOf(i),...(i.embalagem?{embalagem:i.embalagem}:{}),total:i.total}))};
   const patch={};
-  items.forEach(i=>{const k=keyOf(i.nome),old=CAT[k]||{};patch[k]={nome:i.nome,categoria:i.categoria||old.categoria||"Outros",subcategoria:i.subcategoria||old.subcategoria||"Diversos",marca:i.marca||old.marca||"",unidade:i.unidade||old.unidade||"",conteudo:i.conteudo||old.conteudo||null,qtd:i.qtd,total:i.total,preco:r2(i.total/i.qtd),loja:lojaNome,dia,vezes:(old.vezes||0)+1}});
+  items.forEach(i=>{const k=keyOf(i.nome),old=CAT[k]||{};patch[k]={nome:i.nome,categoria:i.categoria||old.categoria||"Outros",subcategoria:i.subcategoria||old.subcategoria||"Diversos",marca:i.marca||old.marca||"",unidade:i.unidade||old.unidade||"",conteudo:i.conteudo||null,modo:i.modo||modoOf(i),embalagem:i.embalagem||null,qtd:i.qtd,total:i.total,preco:r2(i.total/i.qtd),loja:lojaNome,dia,vezes:(old.vezes||0)+1}});
   $("saveBtn").disabled=true;$("saveBtn").textContent="Salvando…";
   try{
     const cp={}; items.forEach(i=>{if(!i.categoria)return; const d=DEFAULT_CATS[i.categoria]; if(!d||!d.includes(i.subcategoria)){(cp[i.categoria]=cp[i.categoria]||{})[i.subcategoria]=true}});
