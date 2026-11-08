@@ -351,18 +351,37 @@ p.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px;font-siz
     </div>
     <div class="last" id="lastBox" hidden></div>
 
-    <div class="two">
-      <div>
-        <label class="lbl" for="iQty">Quantidade vendida</label>
-        <div class="stepper2"><button type="button" data-q="-1" aria-label="Menos um">−</button><input type="text" id="iQty" inputmode="decimal" value="1"><button type="button" data-q="1" aria-label="Mais um">+</button></div>
-      </div>
-      <div>
-        <label class="lbl">Vendido em</label>
-        <div class="units three" id="units" role="radiogroup" aria-label="Unidade de venda">
-          <button type="button" role="radio" data-u="un">un</button><button type="button" role="radio" data-u="kg">kg</button><button type="button" role="radio" data-u="L">L</button>
-        </div>
-      </div>
+    <p class="lbl">Como foi vendido?</p>
+    <div class="modes" id="modes" role="radiogroup" aria-label="Como foi vendido">
+      <button type="button" role="radio" data-m="unid"><b>Unidade</b><small>un, cento</small></button>
+      <button type="button" role="radio" data-m="peso"><b>Peso</b><small>kg ou g</small></button>
+      <button type="button" role="radio" data-m="litro"><b>Litro</b><small>L ou ml</small></button>
+      <button type="button" role="radio" data-m="emb"><b>Embalagem</b><small>caixa, garrafa</small></button>
     </div>
+
+    <div class="mbox" id="boxAmt" hidden>
+      <label class="lbl" for="iAmt" id="amtLbl">Quanto pesou?</label>
+      <div class="amt"><input type="text" id="iAmt" inputmode="decimal" placeholder="Ex.: 2">
+        <div class="seg" id="amtUn" role="radiogroup" aria-label="Unidade"></div></div>
+      <div class="quick" id="amtQuick"></div>
+    </div>
+
+    <div class="mbox" id="boxEmb" hidden>
+      <p class="lbl">Tipo de embalagem</p>
+      <div class="quick tipos" id="embTipo"></div>
+      <label class="lbl" for="iSize" id="sizeLbl">Cada caixa tem</label>
+      <div class="amt"><input type="text" id="iSize" inputmode="decimal" placeholder="Ex.: 50">
+        <div class="seg" id="units" role="radiogroup" aria-label="Unidade do conteúdo">
+          <button type="button" role="radio" data-u="un">un</button><button type="button" role="radio" data-u="kg">kg</button><button type="button" role="radio" data-u="g">g</button><button type="button" role="radio" data-u="L">L</button><button type="button" role="radio" data-u="ml">ml</button>
+        </div></div>
+    </div>
+
+    <div class="mbox" id="boxQty">
+      <label class="lbl" for="iQty" id="qtyLbl">Quantas unidades?</label>
+      <div class="stepper2"><button type="button" data-q="-1" aria-label="Menos um">−</button><input type="text" id="iQty" inputmode="decimal" value="1"><button type="button" data-q="1" aria-label="Mais um">+</button></div>
+      <div class="quick" id="qtyQuick"></div>
+    </div>
+    <p class="resumo" id="mResumo" hidden></p>
 
     <label class="lbl" for="iTotal">Valor vendido (R$)</label>
     <div class="money"><input type="text" id="iTotal" inputmode="decimal" placeholder="Ex.: 45,00"><button type="button" class="btn" id="useLast" hidden>Usar último preço</button></div>
@@ -441,7 +460,7 @@ let be=null;
 
 /* ---------- estado ---------- */
 const store={get(k,d){try{const v=localStorage.getItem("svv_"+k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem("svv_"+k,JSON.stringify(v))}catch(e){}}};
-let CAT={}, MENU=DEFAULT_MENU, pay="", items=[], unit="un", editIdx=-1;
+let CAT={}, MENU=DEFAULT_MENU, pay="", items=[], editIdx=-1;
 const draft=store.get("draft",null);
 if(draft&&Array.isArray(draft.items)&&draft.items.length){items=draft.items;pay=draft.pay||""}
 function saveDraft(){store.set("draft",{items,pay})}
@@ -478,17 +497,17 @@ function renderAc(){
 function moveAc(d){const lis=[...$("acList").querySelectorAll("li")];if(!lis.length)return;acSel=(acSel+d+lis.length)%lis.length;lis.forEach((l,i)=>l.setAttribute("aria-selected",i===acSel));lis[acSel].scrollIntoView({block:"nearest"})}
 function pickAc(li){
   if(!li)return;
-  if(li.dataset.new){$("acList").hidden=true;$("iName").value=$("iName").value.trim().replace(/^./,c=>c.toUpperCase());applyLast(null);$("iQty").focus();return}
+  if(li.dataset.new){$("acList").hidden=true;$("iName").value=$("iName").value.trim().replace(/^./,c=>c.toUpperCase());applyLast(null);$("iQty").select();return}
   choose(acItems[+li.dataset.i]);
 }
-function choose(it){$("iName").value=it.nome;$("acList").hidden=true;$("iName").setAttribute("aria-expanded","false");applyLast(it);$("iTotal").focus()}
+function choose(it){$("iName").value=it.nome;$("acList").hidden=true;$("iName").setAttribute("aria-expanded","false");applyLast(it);setTimeout(()=>{if(modo==="peso"||modo==="litro")$("iAmt").focus();else $("iQty").select()},0)}
 function unitPriceOf(it){return it?(it.preco||it.precoMenu||0):0}
 function applyLast(it){
   const k=keyOf(it?it.nome:$("iName").value), c=CAT[k], base=it||c;
-  setUnit((c&&c.unidade)||(base&&base.unidade)||"un");
+  const ref=c||base; if(ref){const m=modoOf(ref);if(m==="emb"&&ref.emb){embTipo=ref.emb.tipo||"caixa";setModo("emb");$("iSize").value=fmtN(ref.emb.conteudo);setEUnit(ref.emb.unidade||"un");$("iQty").value="1"}else{$("iAmt").value="";$("iQty").value="1";setModo(m)}}
   if(c&&c.preco){
     $("lastBox").hidden=false;
-    $("lastBox").innerHTML=`Última venda: <b>${fmtN(c.qtd||1)} ${esc(c.unidade||"un")}</b> por <b>${brl(c.total)}</b>${c.dia?" em "+br(c.dia):""} · <b>${brl(c.preco)}</b> por ${esc(UNAME[c.unidade]||"unidade")}`;
+    $("lastBox").innerHTML=`Última venda: <b>${esc(descV(c))}</b> por <b>${brl(c.total)}</b>${c.dia?" em "+br(c.dia):""} · <b>${esc(perUnit(c))}</b>`;
   } else if(base&&base.precoMenu){
     $("lastBox").hidden=false; $("lastBox").innerHTML=`Preço no cardápio: <b>${brl(base.precoMenu)}</b> por unidade`;
   } else $("lastBox").hidden=true;
@@ -512,32 +531,86 @@ function renderRecent(){
 }
 $("recent").addEventListener("click",e=>{const b=e.target.closest("button[data-k]");if(!b)return;const c=CAT[b.dataset.k];if(c)choose(c)});
 
-function setUnit(u){unit=u;document.querySelectorAll("#units button").forEach(b=>b.setAttribute("aria-checked",b.dataset.u===u));calc()}
-$("units").addEventListener("click",e=>{const b=e.target.closest("button[data-u]");if(b){setUnit(b.dataset.u);$("iTotal").focus()}});
+/* ---------- medida: unidade, peso, litro ou embalagem ---------- */
+const TIPOS=["caixa","pacote","bandeja","garrafa","copo","pote","saco"];
+const PLUR={caixa:"caixas",pacote:"pacotes",bandeja:"bandejas",garrafa:"garrafas",copo:"copos",pote:"potes",saco:"sacos"};
+const tipoN=(t,n)=>n===1?t:(PLUR[t]||t+"s");
+let modo="unid", amtU="kg", embTipo="caixa", eUnit="un";
+function modoOf(c){if(!c)return "unid";if(c.modo)return c.modo;const u=c.unidade||"un";return u==="kg"?"peso":u==="L"?"litro":"unid"}
+function setModo(m){
+  modo=m; document.querySelectorAll("#modes button").forEach(b=>b.setAttribute("aria-checked",b.dataset.m===m));
+  $("boxAmt").hidden=!(m==="peso"||m==="litro"); $("boxQty").hidden=!(m==="unid"||m==="emb"); $("boxEmb").hidden=m!=="emb";
+  if(m==="peso"||m==="litro"){const us=m==="peso"?["kg","g"]:["L","ml"];if(!us.includes(amtU))amtU=us[0];
+    $("amtLbl").textContent=m==="peso"?"Quanto pesou?":"Quantos litros?";
+    $("amtUn").innerHTML=us.map(u=>`<button type="button" role="radio" data-au="${u}" aria-checked="${u===amtU}">${u}</button>`).join("");renderAmtQuick()}
+  if(m==="unid"){$("qtyLbl").textContent="Quantas unidades?";$("qtyQuick").innerHTML=[["10","10"],["25","25"],["50","50"],["100","1 cento"]].map(([v,l])=>`<button type="button" data-qv="${v}">${l}</button>`).join("")}
+  if(m==="emb"){$("qtyQuick").innerHTML="";renderTipos()}
+  calc();
+}
+function renderAmtQuick(){const v=modo==="peso"?(amtU==="kg"?["0,5","1","2","5"]:["100","250","500"]):(amtU==="L"?["1","2","5","10"]:["300","500","700"]);
+  $("amtQuick").innerHTML=v.map(x=>`<button type="button" data-av="${x}">${x} ${amtU}</button>`).join("")}
+function renderTipos(){$("embTipo").innerHTML=TIPOS.map(t=>`<button type="button" data-t="${t}" aria-pressed="${t===embTipo}">${t[0].toUpperCase()+t.slice(1)}</button>`).join("");$("sizeLbl").textContent="Cada "+embTipo+" tem";$("qtyLbl").textContent="Quantos "+tipoN(embTipo,2)+"?"}
+function setEUnit(u){eUnit=u;document.querySelectorAll("#units button").forEach(b=>b.setAttribute("aria-checked",b.dataset.u===u));calc()}
+$("modes").addEventListener("click",e=>{const b=e.target.closest("[data-m]");if(!b)return;setModo(b.dataset.m);$("eItem").textContent="";setTimeout(()=>{if(modo==="peso"||modo==="litro")$("iAmt").focus();else if(modo==="emb")$("iSize").focus();else $("iQty").select()},0)});
+$("amtUn").addEventListener("click",e=>{const b=e.target.closest("[data-au]");if(!b)return;amtU=b.dataset.au;$("amtUn").querySelectorAll("[data-au]").forEach(x=>x.setAttribute("aria-checked",x===b));renderAmtQuick();calc();$("iAmt").focus()});
+$("amtQuick").addEventListener("click",e=>{const b=e.target.closest("[data-av]");if(!b)return;$("iAmt").value=b.dataset.av;calc();$("iTotal").focus()});
+$("qtyQuick").addEventListener("click",e=>{const b=e.target.closest("[data-qv]");if(!b)return;$("iQty").value=b.dataset.qv;calc();$("iTotal").focus()});
+$("embTipo").addEventListener("click",e=>{const b=e.target.closest("[data-t]");if(!b)return;embTipo=b.dataset.t;renderTipos();calc()});
+$("units").addEventListener("click",e=>{const b=e.target.closest("button[data-u]");if(b){setEUnit(b.dataset.u);$("iQty").select()}});
 document.querySelector(".stepper2").addEventListener("click",e=>{const b=e.target.closest("button[data-q]");if(!b)return;let q=num($("iQty").value);if(isNaN(q))q=0;q=Math.max(1,q+(+b.dataset.q));$("iQty").value=fmtN(q);calc()});
-["iQty","iTotal"].forEach(id=>$(id).addEventListener("input",calc));
-$("useLast").addEventListener("click",()=>{const k=keyOf($("iName").value),c=CAT[k],it=catList().find(x=>keyOf(x.nome)===k);const p=(c&&c.preco)||(it&&it.precoMenu);if(!p)return;let q=num($("iQty").value);if(isNaN(q)||q<=0)q=1;$("iTotal").value=r2(p*q).toFixed(2).replace(".",",");calc()});
-function perUnit(q,u,t){return q>0&&t>0?brl(t/q)+" por "+(UNAME[u]||"unidade"):""}
+["iQty","iSize","iTotal","iAmt"].forEach(id=>$(id).addEventListener("input",calc));
+$("iAmt").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();$("iTotal").focus()}});
+$("iQty").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();$("iTotal").focus()}});
+$("iSize").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();$("iQty").select()}});
+$("iTotal").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();addItem()}});
+const r3=v=>Math.round(v*1000)/1000;
+// medida da tela -> quantidade na unidade base (un, kg ou L)
+function medida(){
+  if(modo==="peso"||modo==="litro"){const a=num($("iAmt").value);if(!(a>0))return {erro:modo==="peso"?"Informe quanto pesou.":"Informe quantos litros."};
+    const big=modo==="peso"?"kg":"L";return {modo,qtd:r3(amtU===big?a:a/1000),unidade:big}}
+  const n=num($("iQty").value);
+  if(modo==="unid"){if(!(n>0))return {erro:"Informe quantas unidades."};return {modo,qtd:n,unidade:"un"}}
+  const sz=num($("iSize").value);if(!(sz>0))return {erro:"Informe quanto tem em cada "+embTipo+"."};if(!(n>0))return {erro:"Informe quantos "+tipoN(embTipo,2)+"."};
+  const f=eUnit==="g"||eUnit==="ml"?.001:1, big=eUnit==="g"||eUnit==="kg"?"kg":eUnit==="ml"||eUnit==="L"?"L":"un";
+  return {modo,qtd:r3(n*sz*f),unidade:big,emb:{n,tipo:embTipo,conteudo:sz,unidade:eUnit}};
+}
+const UN={un:"un",kg:"kg",L:"L"};
+function descV(i){const q=+i.qtd||0,u=i.unidade||"un";
+  if(i.emb&&i.emb.n)return fmtN(i.emb.n)+" "+tipoN(i.emb.tipo,i.emb.n)+" de "+fmtN(i.emb.conteudo)+" "+i.emb.unidade+(i.emb.n>1||i.emb.unidade!==u?" ("+fmtN(q)+" "+u+")":"");
+  if((u==="kg"||u==="L")&&q>0&&q<1)return fmtN(Math.round(q*1000))+" "+(u==="kg"?"g":"ml");
+  return fmtN(q)+" "+(UN[u]||u)}
+function perUnit(i){const q=+i.qtd||0,t=+i.total||0;if(!(q>0&&t>0))return "";const u=i.unidade||"un";
+  let s=brl(t/q)+(u==="un"?" cada":" por "+u);if(i.emb&&i.emb.n)s=brl(t/i.emb.n)+" cada "+i.emb.tipo+" · "+s;return s}
 function calc(){
-  const q=num($("iQty").value), t=num($("iTotal").value);
-  let s=perUnit(q,unit,t);
+  const md=medida(), t=num($("iTotal").value);
+  if(md.erro){$("mResumo").hidden=true;$("calc").innerHTML="";return}
+  $("mResumo").hidden=false;$("mResumo").innerHTML="<b>"+esc(descV(md))+"</b>";
+  let s=t>0?perUnit(Object.assign({},md,{total:t})):"";
   const k=keyOf($("iName").value), c=CAT[k], it=catList().find(x=>keyOf(x.nome)===k);
-  const ref=c&&c.preco&&c.unidade===unit?c.preco:(it&&it.precoMenu&&unit==="un"?it.precoMenu:0);
-  if(s&&ref&&q>0){const d=(t/q)/ref-1;if(Math.abs(d)>=0.01)s+=` · <span class="${d<0?"up":"down"}">${d>0?"▲":"▼"} ${Math.abs(d*100).toFixed(0)}% ${d>0?"acima":"abaixo"} ${c&&c.preco?"da última venda":"do cardápio"}</span>`}
+  const ref=c&&c.preco&&(c.unidade||"un")===md.unidade?c.preco:(it&&it.precoMenu&&md.unidade==="un"?it.precoMenu:0);
+  if(s&&ref){const d=(t/md.qtd)/ref-1;if(Math.abs(d)>=0.01)s+=` · <span class="${d<0?"up":"down"}">${d>0?"▲":"▼"} ${Math.abs(d*100).toFixed(0)}% ${d>0?"acima":"abaixo"} ${c&&c.preco?"da última venda":"do cardápio"}</span>`}
   $("calc").innerHTML=s;
 }
-$("iTotal").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();addItem()}});
-$("iQty").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();$("iTotal").focus()}});
+function fillMedida(i){
+  const m=modoOf(i);
+  if(m==="peso"||m==="litro"){const q=+i.qtd||0,small=m==="peso"?"g":"ml";amtU=q>0&&q<1?small:(m==="peso"?"kg":"L");setModo(m);$("iAmt").value=q?fmtN(amtU===small?Math.round(q*1000):q):""}
+  else if(m==="emb"&&i.emb){embTipo=i.emb.tipo||"caixa";setModo("emb");$("iQty").value=fmtN(i.emb.n);$("iSize").value=fmtN(i.emb.conteudo);setEUnit(i.emb.unidade||"un")}
+  else{setModo("unid");$("iQty").value=fmtN(+i.qtd||1)}
+  calc();
+}
 
-function resetItem(){$("iName").value="";$("iQty").value="1";$("iTotal").value="";$("calc").innerHTML="";$("lastBox").hidden=true;$("useLast").hidden=true;setUnit("un");editIdx=-1;$("addItem").textContent="+ Adicionar produto"}
+$("useLast").addEventListener("click",()=>{const k=keyOf($("iName").value),c=CAT[k],it=catList().find(x=>keyOf(x.nome)===k);const md=medida();
+  let p=0,q=md.erro?1:md.qtd;if(c&&c.preco&&(md.erro||(c.unidade||"un")===md.unidade))p=c.preco;else if(it&&it.precoMenu&&(md.erro||md.unidade==="un"))p=it.precoMenu;else if(c&&c.preco)p=c.preco;
+  if(!p)return;$("iTotal").value=r2(p*q).toFixed(2).replace(".",",");calc()});
+function resetItem(){$("iName").value="";$("iQty").value="1";$("iAmt").value="";$("iSize").value="";$("iTotal").value="";$("calc").innerHTML="";$("lastBox").hidden=true;$("useLast").hidden=true;embTipo="caixa";setEUnit("un");setModo("unid");editIdx=-1;$("addItem").textContent="+ Adicionar produto"}
 function addItem(){
-  const nome=$("iName").value.trim().replace(/^./,c=>c.toUpperCase()), q=num($("iQty").value), t=num($("iTotal").value);
+  const nome=$("iName").value.trim().replace(/^./,c=>c.toUpperCase()), md=medida(), t=num($("iTotal").value);
   let err="";
   if(!nome) err="Escreva o nome do produto.";
-  else if(!(q>0)) err="Informe a quantidade vendida.";
+  else if(md.erro) err=md.erro;
   else if(!(t>0)) err="Informe o valor vendido.";
   if(err){$("eItem").textContent=err;return}
-  const it={nome,qtd:q,unidade:unit,total:r2(t)};
+  const it={nome,qtd:md.qtd,unidade:md.unidade,modo:md.modo,total:r2(t)}; if(md.emb)it.emb=md.emb;
   if(editIdx>=0) items[editIdx]=it; else items.push(it);
   $("eItem").textContent=""; resetItem(); renderItems(); saveDraft(); toast(nome+" adicionado"); $("iName").focus();
 }
@@ -547,7 +620,7 @@ $("addItem").addEventListener("click",addItem);
 const total=()=>items.reduce((a,i)=>a+i.total,0);
 function renderItems(){
   $("items").innerHTML=items.length?items.map((i,k)=>`<li>
-    <div class="it-main"><b>${esc(i.nome)}</b><small>${fmtN(i.qtd)} ${esc(i.unidade)} · ${esc(perUnit(i.qtd,i.unidade,i.total))}</small></div>
+    <div class="it-main"><b>${esc(i.nome)}</b><small>${esc(descV(i))} · ${esc(perUnit(i))}</small></div>
     <b class="it-t">${brl(i.total)}</b>
     <div class="it-act"><button type="button" data-ed="${k}">Editar</button><button type="button" data-rm="${k}" class="rm">Remover</button></div></li>`).join(""):`<li class="empty">Nenhum produto ainda.</li>`;
   const n=items.length; $("sumCount").textContent=n+(n===1?" produto":" produtos"); $("sumTotal").textContent=brl(total());
@@ -556,7 +629,7 @@ function renderItems(){
 $("items").addEventListener("click",e=>{
   const ed=e.target.closest("[data-ed]"), rm=e.target.closest("[data-rm]");
   if(rm){items.splice(+rm.dataset.rm,1);renderItems();saveDraft();return}
-  if(ed){const i=items[+ed.dataset.ed];editIdx=+ed.dataset.ed;$("iName").value=i.nome;$("iQty").value=fmtN(i.qtd);setUnit(i.unidade||"un");$("iTotal").value=i.total.toFixed(2).replace(".",",");calc();$("addItem").textContent="Salvar alteração";$("itemCard").scrollIntoView({behavior:"smooth"})}
+  if(ed){const i=items[+ed.dataset.ed];editIdx=+ed.dataset.ed;$("iName").value=i.nome;fillMedida(i);$("iTotal").value=i.total.toFixed(2).replace(".",",");calc();$("addItem").textContent="Salvar alteração";$("itemCard").scrollIntoView({behavior:"smooth"})}
 });
 
 /* ---------- salvar ---------- */
@@ -565,9 +638,9 @@ $("saveBtn").addEventListener("click",async()=>{
   if(!pay){$("eHead").textContent="Escolha a forma de pagamento.";window.scrollTo({top:0,behavior:"smooth"});return}
   if(!items.length) return;
   const dia=$("vDate").value||tzDate(new Date());
-  const venda={dia,pagamento:pay,cliente:$("vClient").value.trim(),obs:$("vObs").value.trim(),total:r2(total()),itens:items.map(i=>({nome:i.nome,qtd:i.qtd,unidade:i.unidade,total:i.total}))};
+  const venda={dia,pagamento:pay,cliente:$("vClient").value.trim(),obs:$("vObs").value.trim(),total:r2(total()),itens:items.map(i=>Object.assign({nome:i.nome,qtd:i.qtd,unidade:i.unidade,modo:i.modo||modoOf(i),total:i.total},i.emb?{emb:i.emb}:{}))};
   const patch={};
-  items.forEach(i=>{const k=keyOf(i.nome),old=CAT[k]||{};patch[k]={nome:i.nome,unidade:i.unidade,qtd:i.qtd,total:i.total,preco:r2(i.total/i.qtd),dia,vezes:(old.vezes||0)+1,ultimoCliente:venda.cliente||old.ultimoCliente||""}});
+  items.forEach(i=>{const k=keyOf(i.nome),old=CAT[k]||{};patch[k]={nome:i.nome,unidade:i.unidade,modo:i.modo||modoOf(i),emb:i.emb||null,qtd:i.qtd,total:i.total,preco:r2(i.total/i.qtd),dia,vezes:(old.vezes||0)+1,ultimoCliente:venda.cliente||old.ultimoCliente||""}});
   $("saveBtn").disabled=true;$("saveBtn").textContent="Salvando…";
   try{
     await be.save(venda,patch);
@@ -584,7 +657,7 @@ const PAYS={"Dinheiro":"Dinheiro","Pix":"Pix","Cartão de débito":"Débito","Ca
 function renderHist(){
   $("hist").innerHTML=recentList.length?recentList.map(v=>`<li>
     <div class="h-top"><b>${esc(PAYS[v.pagamento]||v.pagamento||"")}</b><span>${br(v.dia)}${v.cliente?" · "+esc(v.cliente):""}</span><b class="h-t">${brl(v.total)}</b></div>
-    <small>${esc((v.itens||[]).map(i=>fmtN(i.qtd)+" "+i.unidade+" "+i.nome).join(", "))}</small>
+    <small>${esc((v.itens||[]).map(i=>descV(i)+" "+i.nome).join(", "))}</small>
     <div class="h-act">${delAsk===v.id?`<button type="button" class="rm" data-del="${esc(v.id)}">Confirmar exclusão</button><button type="button" data-keep="1">Não</button>`:`<button type="button" data-copy="${esc(v.id)}">Repetir produtos</button><button type="button" class="rm" data-ask="${esc(v.id)}">Excluir</button>`}</div></li>`).join(""):`<li class="empty">Nenhuma venda avulsa lançada ainda.</li>`;
 }
 $("hist").addEventListener("click",async e=>{
@@ -608,7 +681,7 @@ $("loginForm").addEventListener("submit",async e=>{
 });
 let histUnsub=null;
 (async function(){
-  renderPays(); renderItems(); setUnit("un");
+  renderPays(); renderItems(); setModo("unid");
   try{be=await backend()}catch(e){$("loginView").hidden=false;$("lErr").textContent="Não consegui carregar o sistema. Recarregue a página.";return}
   be.onAuth(async u=>{
     if(!u){$("appView").hidden=true;$("saveBar").hidden=true;$("loginView").hidden=false;return}
