@@ -326,6 +326,7 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
 .ret-list li span{flex:1;color:var(--muted);font-weight:600}
 .ret-list .rm{border:1px solid var(--line);background:#fff;border-radius:8px;padding:4px 10px;color:var(--danger);font-weight:700;font-size:.8rem}
 .ret-list .empty{color:var(--muted);justify-content:center}
+.pag-note{margin-top:10px}
 </style>
 </head>
 <body>
@@ -524,16 +525,17 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
     <div class="tile"><span>Gasto em compras</span><b id="kCmp">—</b><em id="kCmpN"></em></div>
     <div class="tile"><span>Onde mais gastou</span><b id="kCmpTop" class="small">—</b><em id="kCmpTopV"></em></div>
     <div class="tile"><span>Compras ÷ vendas</span><b id="kCmpPct">—</b><em>quanto das vendas foi para compras</em></div>
-    <div class="tile"><span id="kSobraL">Sobra de caixa</span><b id="kCaixa">—</b><em>vendas − compras − taxas − equipe − fixos</em></div>
+    <div class="tile"><span>Sobra de caixa</span><b id="kCaixa">—</b><em>vendas − compras − taxas − equipe − fixos</em></div>
   </div>
   <div class="grid2">
     <div class="box chartbox"><h3>Gasto por categoria</h3><div class="pie-row"><div class="cwrap pie"><canvas id="cCmpCat" role="img" aria-label="Pizza de gasto por categoria"></canvas></div><ul class="legend" id="lCmpCat"></ul></div></div>
     <div class="box chartbox"><h3>Gasto por subcategoria</h3><div class="cwrap tall"><canvas id="cCmpSub" role="img" aria-label="Gasto por subcategoria"></canvas></div></div>
   </div>
   <div class="grid2">
+    <div class="box chartbox"><h3>Gasto por forma de pagamento</h3><div class="pie-row"><div class="cwrap pie"><canvas id="cCmpPag" role="img" aria-label="Pizza de gasto em compras por forma de pagamento"></canvas></div><ul class="legend" id="lCmpPag"></ul></div><p class="sub pag-note" id="cmpPagNote"></p></div>
     <div class="box chartbox"><h3>Gasto por local</h3><div class="pie-row"><div class="cwrap pie"><canvas id="cCmpLoja" role="img" aria-label="Pizza de gasto por local de compra"></canvas></div><ul class="legend" id="lCmpLoja"></ul></div></div>
-    <div class="box chartbox"><h3>Itens com maior gasto</h3><div class="cwrap tall"><canvas id="cCmpItem" role="img" aria-label="Itens com maior gasto"></canvas></div></div>
   </div>
+  <div class="box chartbox"><h3>Itens com maior gasto</h3><div class="cwrap tall"><canvas id="cCmpItem" role="img" aria-label="Itens com maior gasto"></canvas></div></div>
   <div class="box"><h3>Preço médio pago por item</h3><p class="sub">Use para atualizar o custo dos produtos na aba Custos e taxas.</p><div class="tscroll"><table class="tbl" id="cmpPrices"></table></div></div>
   <div class="box"><div class="pe-top"><h3>Compras do período</h3><button type="button" class="btn" id="cmpCsv">Baixar compras em CSV</button></div><div class="tscroll"><table class="tbl" id="cmpList"></table></div></div>
   <p class="sub">A sobra de caixa é diferente do lucro: ela conta tudo o que foi comprado no período, inclusive o que ainda está no estoque. Para lançar uma compra, use a página <a href="../compras/">Compras</a>.</p>
@@ -1182,6 +1184,12 @@ function renderCompras(S){
   $("kCmpPct").textContent=S.fat?pct(tot/S.fat):"—";
   const caixa=S.fat-S.imp-S.taxas-tot-S.equipe-S.cf; $("kCaixa").textContent=brl(caixa); $("kCaixa").classList.toggle("neg",caixa<0);
   pie("cCmpLoja","lCmpLoja",byL); pie("cCmpCat","lCmpCat",byC);
+  const PAGS=["Dinheiro","Pix","Cartão de débito","Cartão de crédito","Boleto / a prazo","Não informado"];
+  const pagCol={"Dinheiro":COLORS[2],"Pix":COLORS[0],"Cartão de débito":COLORS[6],"Cartão de crédito":COLORS[1],"Boleto / a prazo":COLORS[3],"Não informado":OTHER};
+  const byP={}; COMPRAS.forEach(c=>{let p=c.pagamento||"Não informado";if(/boleto|prazo/i.test(p))p="Boleto / a prazo";byP[p]=(byP[p]||0)+(+c.total||0)});
+  pie("cCmpPag","lCmpPag",byP,{max:8,colorMap:pagCol});
+  const prazo=(byP["Cartão de crédito"]||0)+(byP["Boleto / a prazo"]||0), vista=tot-prazo-(byP["Não informado"]||0);
+  $("cmpPagNote").innerHTML=tot?`<b>À vista:</b> ${brl(vista)} (${pct(vista/tot)}) · <b>A pagar depois</b> (crédito + boleto): ${brl(prazo)} (${pct(prazo/tot)})`+(prazo?". Separe esse valor para a fatura e os boletos.":"")+(byP["Não informado"]?` · ${brl(byP["Não informado"])} sem forma de pagamento informada.`:""):"";
   const ts=Object.entries(byS).sort((a,b)=>b[1]-a[1]).slice(0,10);
   chart("cCmpSub",barCfg(ts.map(x=>x[0]),ts.map(x=>r2(x[1])),{horizontal:true,color:COLORS[2]}));
   const ti=Object.entries(byI).sort((a,b)=>b[1]-a[1]).slice(0,10);
