@@ -315,6 +315,17 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
 .est-bars i{display:block;width:100%;max-width:28px;background:#1f6b2a;border-radius:4px 4px 0 0}
 .est-bars div:last-child i{background:#6cad2f}
 .est-bars span{font-size:.68rem;color:var(--muted);margin-top:3px}
+
+.ret-form{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;align-items:end}
+.ret-form label{display:flex;flex-direction:column;gap:3px;font-size:.78rem;font-weight:800;color:var(--muted)}
+.ret-form input{font:inherit;border:1px solid var(--line);border-radius:10px;padding:9px 10px;font-size:.95rem}
+.ret-form .w{grid-column:span 2}
+.ret-form .btn{grid-column:span 2}
+.ret-list{list-style:none;margin:10px 0 0;padding:0}
+.ret-list li{display:flex;align-items:center;gap:10px;border-top:1px solid var(--line);padding:8px 0;font-size:.9rem}
+.ret-list li span{flex:1;color:var(--muted);font-weight:600}
+.ret-list .rm{border:1px solid var(--line);background:#fff;border-radius:8px;padding:4px 10px;color:var(--danger);font-weight:700;font-size:.8rem}
+.ret-list .empty{color:var(--muted);justify-content:center}
 </style>
 </head>
 <body>
@@ -423,6 +434,21 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
     <h3>Demonstrativo do resultado (DRE)</h3>
     <table class="dre" id="dre"></table>
     <p class="sub" id="dreNote"></p>
+  </div>
+
+  <div class="box">
+    <h3>Lucro e retiradas</h3>
+    <p class="sub">Registre aqui o que você tira do negócio além do pró-labore. Assim dá para ver quanto do lucro ficou na empresa.</p>
+    <table class="dre" id="retTable"></table>
+    <p class="sub" id="retNote"></p>
+    <div class="ret-form">
+      <label>Data<input type="date" id="retDia"></label>
+      <label>Valor (R$)<input type="text" id="retVal" inputmode="decimal" placeholder="Ex.: 1.000,00"></label>
+      <label class="w">Observação<input type="text" id="retObs" maxlength="100" placeholder="Opcional"></label>
+      <button type="button" class="btn solid" id="retSave">Registrar retirada</button>
+    </div>
+    <p class="err" id="retErr"></p>
+    <ul class="ret-list" id="retList"></ul>
   </div>
 
   <div class="box" id="cxBox">
@@ -652,6 +678,9 @@ function backend(){
       async vendas(a,b){const s=await F.getDocs(F.query(F.collection(db,"vendas"),F.where("dia",">=",a),F.where("dia","<=",b)));return s.docs.map(d=>Object.assign({id:d.id},d.data({serverTimestamps:"estimate"})))},
       async caixa(a,b){const s=await F.getDocs(F.query(F.collection(db,"caixa"),F.where("dia",">=",a),F.where("dia","<=",b)));return s.docs.map(d=>d.data())},
       async estoque(){const s=await F.getDocs(F.query(F.collection(db,"estoque"),F.orderBy("dia","desc"),F.limit(40)));return s.docs.map(d=>Object.assign({id:d.id},d.data()))},
+      async retiradas(a,b){const s=await F.getDocs(F.query(F.collection(db,"retiradas"),F.where("dia",">=",a),F.where("dia","<=",b)));return s.docs.map(d=>Object.assign({id:d.id},d.data()))},
+      async addRetirada(d){const r=await F.addDoc(F.collection(db,"retiradas"),Object.assign({},d,{criado:F.serverTimestamp()}));return r.id},
+      delRetirada(id){return F.deleteDoc(F.doc(db,"retiradas",id))},
       async perdas(a,b){const s=await F.getDocs(F.query(F.collection(db,"perdas"),F.where("dia",">=",a),F.where("dia","<=",b)));return s.docs.map(d=>Object.assign({id:d.id},d.data()))},
       async compras(a,b){const s=await F.getDocs(F.query(F.collection(db,"compras"),F.where("dia",">=",a),F.where("dia","<=",b)));return s.docs.map(d=>Object.assign({id:d.id},d.data({serverTimestamps:"estimate"})))},
       watch(path,cb){return F.onSnapshot(F.doc(db,...path.split("/")),s=>cb(s.exists()?s.data():null),e=>console.warn(e))},
@@ -690,7 +719,7 @@ async function loadOrders(a,b){
 
 /* ---------- estado ---------- */
 let period="mes", anchor=tzDate(new Date()), tab="resumo";
-let MENU=DEFAULT_MENU, CFG=null, ORDERS=[], STATS=null, YEARMONTHS=null, COMPRAS=[], CAIXA=[], EQUIPE=[], TEAM=null, VENDAS=[], AVCAT={}, ESTQ=[], PERDAS=[];
+let MENU=DEFAULT_MENU, CFG=null, ORDERS=[], STATS=null, YEARMONTHS=null, COMPRAS=[], CAIXA=[], EQUIPE=[], TEAM=null, VENDAS=[], AVCAT={}, ESTQ=[], PERDAS=[], RETIR=[];
 const DEFAULT_CFG={custos:{},fixos:[{nome:"Aluguel",valor:0},{nome:"Energia",valor:0},{nome:"Água",valor:0},{nome:"Gás",valor:0},{nome:"Salários e encargos",valor:0},{nome:"Internet e telefone",valor:0},{nome:"Contador",valor:0}],taxas:{debito:0,credito:0,pix:0},imposto:0};
 function note(t){$("note").textContent=t||"";$("note").hidden=!t}
 
@@ -859,6 +888,15 @@ function groupedCfg(labels,a,b,la,lb,c,lc){
 }
 
 /* ---------- desenho ---------- */
+function proLabore(){const f=(CFG.fixos||[]).find(x=>/pr[oó][\s-]*labore/i.test(x.nome||""));return f?(+f.valor||0)*fixedFactor():0}
+let retDel=null;
+function renderRetiradas(S){
+  const tot=RETIR.reduce((a,r)=>a+(+r.valor||0),0), pl=proLabore(), fica=S.ll-tot;
+  $("retTable").innerHTML=[["Lucro líquido do período"+(pl?" (já descontado o pró-labore de "+brl(pl)+")":""),S.ll,"dre-sub"],["(−) Retiradas de lucros",-tot],["= Ficou na empresa",fica,"dre-res"]].map(([l,v,c])=>`<tr class="${c||""}"><td>${esc(l)}</td><td class="num${v<0?" neg":""}">${brl(v)}</td></tr>`).join("");
+  $("retNote").textContent=(pl?"":"Cadastre o pró-labore em Custos e taxas › Custos fixos (nome “Pró-labore”) para ele entrar no lucro. ")+(tot>S.ll&&tot>0?"Você retirou mais do que o lucro do período: a diferença saiu do capital de giro. ":"")+(S.ll>0?"Sugestão: retire até "+brl(Math.max(0,S.ll*0.7))+" (70% do lucro) e deixe o resto de reserva e reinvestimento.":"");
+  $("retList").innerHTML=RETIR.length?RETIR.slice().sort((a,b)=>(b.dia||"").localeCompare(a.dia||"")).map(r=>`<li><span>${br(r.dia)}${r.obs?" · "+esc(r.obs):""}</span><b>${brl(r.valor)}</b><button type="button" class="rm" data-rdel="${esc(r.id)}">${retDel===r.id?"Confirmar":"Apagar"}</button></li>`).join(""):`<li class="empty">Nenhuma retirada neste período.</li>`;
+  if(!$("retDia").value)$("retDia").value=tzDate(new Date());
+}
 function renderEstoqueBox(S){
   const f=ESTQ.slice(-8), last=f[f.length-1], prev=f[f.length-2], val=c=>Object.values(c&&c.itens||{}).reduce((a,i)=>a+(+i.qtd||0)*(+i.preco||0),0);
   if(!last){$("estBody").innerHTML=`<p class="sub">Nenhuma contagem de estoque ainda. Faça a primeira no sábado: o lucro fica mais exato porque o que sobra na prateleira deixa de contar como custo. <a href="../estoque/">Abrir o estoque</a></p>`;return}
@@ -928,7 +966,7 @@ function renderResumo(S){
   else{$("kSobraL").textContent="Sobra de caixa";$("kSobra").textContent=brl(sobra); $("kSobra").classList.toggle("neg",sobra<0); $("kSobraS").textContent="vendas − compras − taxas − equipe − fixos";}
   $("kEqR").textContent=brl(S.equipe); $("kEqRs").textContent=(S.fat?pct(S.equipe/S.fat)+" das vendas · ":"")+(S.equipeFonte==="equipe"?"diárias lançadas":S.equipe?"pagamentos do caixa":"nada lançado");
   $("kCfR").textContent=brl(S.cf); $("kCfRs").textContent=(S.fat?pct(S.cf/S.fat)+" das vendas · ":"")+(period==="mes"?"do mês":period==="ano"?"12 meses":"proporcional");
-  renderEquipeBox(S); renderEstoqueBox(S);
+  renderEquipeBox(S); renderEstoqueBox(S); renderRetiradas(S);
   const cats=Object.entries(C.byCat).sort((a,b)=>b[1]-a[1]);
   const cr=[["Faturamento bruto",S.fat,"dre-tot"],["(−) Impostos e taxas",-(S.imp+S.taxas)],["(−) Compras do período",-C.tot,"dre-sub"],...cats.map(([k,v])=>["   "+k,-v,"dre-det"]),
     ...(S.equipe?[[S.equipeFonte==="equipe"?"(−) Equipe (diárias)":"(−) Pagamentos à equipe (caixa)",-S.equipe]]:[]),["(−) Custos fixos do período",-S.cf],["= Sobra de caixa",sobra,"dre-tot"]];
@@ -1318,7 +1356,7 @@ async function load(){
   const seq=++loadSeq; if(!wkDirty){const [ra,rb]=range(),td=tzDate(new Date());wk=weekStart(td>=ra&&td<=rb?td:anchor)} $("perLabel").textContent=label();
   document.querySelectorAll("#periodBtns button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.p===period));
   note("Carregando vendas...");
-  try{const [a,b]=range();const [vd,o,c,x,eq,es,pd]=await Promise.all([be.vendas?be.vendas(a,b).catch(()=>[]):Promise.resolve([]),loadOrders(a,b),be.compras(a,b).catch(()=>[]),be.caixa?be.caixa(a,b).catch(()=>[]):Promise.resolve([]),be.equipe?be.equipe(addDays(weekStart(a),-1),b).catch(()=>[]):Promise.resolve([]),be.estoque?be.estoque().catch(()=>[]):Promise.resolve([]),be.perdas?be.perdas(a,b).catch(()=>[]):Promise.resolve([])]); if(seq!==loadSeq)return; ESTQ=(es||[]).filter(c=>c.status==="fechada").sort((x,y)=>x.dia.localeCompare(y.dia)); PERDAS=pd||[]; ORDERS=o; CAIXA=x; EQUIPE=eq; VENDAS=vd; COMPRAS=c.sort((x,y)=>(y.dia||"").localeCompare(x.dia||"")); note(""); recompute(); if(tab==="equipe"&&!wkDirty)loadWeek();}
+  try{const [a,b]=range();const [vd,o,c,x,eq,es,pd,rt]=await Promise.all([be.vendas?be.vendas(a,b).catch(()=>[]):Promise.resolve([]),loadOrders(a,b),be.compras(a,b).catch(()=>[]),be.caixa?be.caixa(a,b).catch(()=>[]):Promise.resolve([]),be.equipe?be.equipe(addDays(weekStart(a),-1),b).catch(()=>[]):Promise.resolve([]),be.estoque?be.estoque().catch(()=>[]):Promise.resolve([]),be.perdas?be.perdas(a,b).catch(()=>[]):Promise.resolve([]),be.retiradas?be.retiradas(a,b).catch(()=>[]):Promise.resolve([])]); if(seq!==loadSeq)return; ESTQ=(es||[]).filter(c=>c.status==="fechada").sort((x,y)=>x.dia.localeCompare(y.dia)); PERDAS=pd||[]; RETIR=rt||[]; ORDERS=o; CAIXA=x; EQUIPE=eq; VENDAS=vd; COMPRAS=c.sort((x,y)=>(y.dia||"").localeCompare(x.dia||"")); note(""); recompute(); if(tab==="equipe"&&!wkDirty)loadWeek();}
   catch(err){if(seq!==loadSeq)return; note(err&&err.code==="permission-denied"?"Sua conta não tem acesso às vendas.":"Não consegui carregar as vendas. Confira a internet e tente de novo.")}
 }
 function setTab(t){tab=t;document.querySelectorAll(".tabs button").forEach(b=>b.setAttribute("aria-selected",b.dataset.t===t));["resumo","melhores","produtos","caixa","compras","equipe","config"].forEach(x=>$("t-"+x).hidden=x!==t);if(t==="config"){fixedDraft=[];renderConfig();refreshCfg()} if(t==="equipe")loadWeek(); Object.values(charts).forEach(c=>c.resize())}
@@ -1353,6 +1391,20 @@ $("logout").addEventListener("click",()=>be&&be.signOut());
       be.watch("catalogo/vendas",d=>{AVCAT=(d&&d.itens)||{};if(STATS&&tab==="config")renderConfig()});
     }
   });
+})();
+(function(){
+  const go=()=>{if(!$("retSave"))return;
+  $("retSave").addEventListener("click",async()=>{const v=num($("retVal").value),d=$("retDia").value||tzDate(new Date());
+    if(!(v>0)){$("retErr").textContent="Informe o valor retirado.";return}
+    $("retErr").textContent="";$("retSave").disabled=true;
+    try{const doc={dia:d,valor:Math.round(v*100)/100,obs:$("retObs").value.trim(),por:be.email?be.email():""};const id=await be.addRetirada(doc);const [a,b]=range();if(d>=a&&d<=b)RETIR.push(Object.assign({id},doc));$("retVal").value="";$("retObs").value="";if(STATS)renderRetiradas(STATS)}
+    catch(e){$("retErr").textContent=e&&e.code==="permission-denied"?"Sem permissão para registrar.":"Não consegui salvar. Tente de novo."}
+    $("retSave").disabled=false});
+  $("retList").addEventListener("click",async e=>{const b=e.target.closest("[data-rdel]");if(!b)return;const id=b.dataset.rdel;
+    if(retDel!==id){retDel=id;renderRetiradas(STATS);setTimeout(()=>{if(retDel===id){retDel=null;if(STATS)renderRetiradas(STATS)}},3000);return}
+    try{await be.delRetirada(id);RETIR=RETIR.filter(r=>r.id!==id);retDel=null;renderRetiradas(STATS)}catch(err){}});
+  };
+  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",go);else go();
 })();
 })();
 </script>
