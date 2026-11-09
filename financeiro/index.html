@@ -607,10 +607,10 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
   <div class="grid2">
     <div class="box">
       <h3>Custos fixos</h3>
-      <p class="sub">Escolha se cada custo é cobrado por <b>mês</b> ou por <b>semana</b>. O sistema converte tudo (1 mês ≈ 4,33 semanas).</p>
+      <p class="sub">Escolha se cada custo é cobrado por <b>mês</b> ou por <b>semana</b>. O cálculo é feito por dia: semanal ÷ 7 e mensal ÷ dias do mês (28, 29, 30 ou 31).</p>
       <div id="cfgFixed"></div>
       <button type="button" class="btn" id="addFixed">+ Adicionar custo fixo</button>
-      <p class="tot-line">Total por mês: <b id="fixedTotal">R$ 0,00</b> · por semana: <b id="fixedWeek">R$ 0,00</b></p>
+      <p class="tot-line">Total em <span id="fixedMesLbl">o mês</span>: <b id="fixedTotal">R$ 0,00</b> · por semana (7 dias): <b id="fixedWeek">R$ 0,00</b></p>
     </div>
     <div class="box">
       <h3>Taxas e impostos</h3>
@@ -757,9 +757,14 @@ function shift(n){
 /* ---------- cálculos ---------- */
 function extraPrices(){const m={};(MENU.cats||[]).forEach(c=>{if(c.id==="complementos")c.itens.forEach(i=>m[i.n]=+i.p||0)});return m}
 function costOf(n){const c=CFG.custos[n];return c?{custo:+c.custo||0,tipo:c.tipo||"produto"}:{custo:0,tipo:"produto"}}
-const SEM_MES=52/12; // semanas por mês
-const fxMes=f=>(+num(f.valor)||0)*(f.freq==="semana"?SEM_MES:1);
-function fixedMonthly(){return (CFG.fixos||[]).reduce((a,f)=>a+fxMes(f),0)}
+// custos fixos dia a dia: semanal = valor ÷ 7 por dia; mensal = valor ÷ dias do mês
+const dim=d=>{const [y,m]=d.split("-").map(Number);return new Date(Date.UTC(y,m,0)).getUTCDate()};
+const fxVal=f=>+num(f.valor)||0;
+const fxDia=(f,d)=>f.freq==="semana"?fxVal(f)/7:fxVal(f)/dim(d);
+const fxMes=(f,ref)=>{ref=ref||tzDate(new Date());return f.freq==="semana"?fxVal(f)/7*dim(ref):fxVal(f)};
+function fixedMonthly(ref){return (CFG.fixos||[]).reduce((a,f)=>a+fxMes(f,ref||range()[0]),0)}
+function fixedDays(){const [a,b]=range(),t=tzDate(new Date());if(period==="dia")return [a];if(a>t)return [];return daysBetween(a,b<t?b:t)}
+function fixedCost(list){const ds=fixedDays();return (list||CFG.fixos||[]).reduce((s,f)=>s+ds.reduce((x,d)=>x+fxDia(f,d),0),0)}
 function elapsedFrac(){if(period==="dia")return 1;const [a,b]=range(),t=tzDate(new Date());if(t>=b)return 1;if(t<a)return 0;
   const wk=(x,y)=>daysBetween(x,y).filter(d=>dow(d)!==0).length;const tot=wk(a,b);return tot?Math.min(1,wk(a,t)/tot):1}
 function fixedFactor(){return (period==="dia"?1/WORKDAYS:period==="semana"?6/WORKDAYS:period==="mes"?1:12)*elapsedFrac()}
@@ -834,7 +839,7 @@ function compute(orders){
   const imp=fat*((+CFG.imposto||0)/100);
   const cmvProd=cmv+csv, CS=comprasSplit(), viaCompras=cmvModo()==="compras"&&COMPRAS.length>0;
   let despOp=0, est=null; if(viaCompras){cmv=CS.merc;csv=0;despOp=CS.desp;est=estoqueAjuste();if(est)cmv+=est.ajuste}
-  const rl=fat-imp-taxas, lb=rl-cmv-csv, cf=fixedMonthly()*fixedFactor(), ll=lb-despOp-equipe-cf;
+  const rl=fat-imp-taxas, lb=rl-cmv-csv, cf=fixedCost(), ll=lb-despOp-equipe-cf;
   const peBase=fixedMonthly()+(equipe+despOp)/fixedFactor();
   const mc=fat>0?lb/fat:NaN, pe=mc>0?peBase/mc:NaN;
   Object.values(prod).forEach(p=>{p.lucro=p.fat-p.custo;p.margem=p.fat>0?p.lucro/p.fat:NaN});
@@ -903,7 +908,7 @@ function groupedCfg(labels,a,b,la,lb,c,lc){
 }
 
 /* ---------- desenho ---------- */
-function proLabore(){const f=(CFG.fixos||[]).find(x=>/pr[oó][\s-]*labore/i.test(x.nome||""));return f?fxMes(f)*fixedFactor():0}
+function proLabore(){const f=(CFG.fixos||[]).find(x=>/pr[oó][\s-]*labore/i.test(x.nome||""));return f?fixedCost([f]):0}
 let retDel=null;
 function renderRetiradas(S){
   const tot=RETIR.reduce((a,r)=>a+(+r.valor||0),0), pl=proLabore(), fica=S.ll-tot;
@@ -972,7 +977,7 @@ function renderResumo(S){
     `<tr><td colspan="3" class="dre-dl"><button type="button" class="btn" id="dreCsv">Baixar DRE em CSV</button></td></tr>`;
   $("dreCsv").onclick=exportDre;
   const ctot=COMPRAS.reduce((a,c)=>a+(+c.total||0),0);
-  $("dreNote").textContent=(S.viaCompras?(S.est?"O CMV usa as compras de mercadorias corrigidas pela contagem de estoque de "+br(S.est.ini)+" e "+br(S.est.fim)+": o que sobrou na prateleira não conta como custo. ":"O CMV vem das compras de mercadorias lançadas no período (com a contagem de estoque no sábado antes e dentro do período, o sistema desconta o que ficou guardado). ")+"Limpeza, gás e equipamentos entram como despesas (dá para mudar em Custos e taxas). Pelos custos cadastrados de cada produto, a margem bruta seria de "+pct(S.fat?(S.fat-S.imp-S.taxas-S.cmvProd)/S.fat:NaN)+"; se o lucro real ficar bem abaixo disso, há desperdício, estoque parado ou custo desatualizado. "+(period==="dia"?"No dia a dia o lucro oscila porque a compra entra no dia em que foi feita: confira na semana ou no mês. ":""):"")+(S.diasCx?"Dias com caixa fechado usam a venda bruta do caixa. "+(S.viaCompras?"":"O CMV das vendas sem registro no painel é estimado pela margem dos produtos"+(S.cmvEst?" ("+brl(S.cmvEst)+")":"")+". "):"Nenhum dia com caixa fechado: o faturamento vem só dos pedidos registrados. ")+(S.equipe?(S.equipeFonte==="equipe"?"A equipe usa as diárias lançadas na aba Equipe; ":"A equipe usa os pagamentos do fechamento de caixa (lance as diárias na aba Equipe para mais precisão); ")+"não repita salários nos custos fixos. ":"")+(ctot&&!S.viaCompras?"Compras lançadas no período: "+brl(ctot)+" (veja a aba Compras). ":"")+"Custos fixos: "+brl(fixedMonthly())+" por mês"+(period==="dia"?", divididos por "+WORKDAYS+" dias abertos.":period==="semana"?", proporcional a 6 dias abertos":period==="ano"?" × 12 meses":"")+(period!=="dia"&&elapsedFrac()<1?" — como o período ainda está em andamento, entra só a parte dos dias que já passaram ("+Math.round(elapsedFrac()*100)+"%).":period==="dia"?"":".");
+  $("dreNote").textContent=(S.viaCompras?(S.est?"O CMV usa as compras de mercadorias corrigidas pela contagem de estoque de "+br(S.est.ini)+" e "+br(S.est.fim)+": o que sobrou na prateleira não conta como custo. ":"O CMV vem das compras de mercadorias lançadas no período (com a contagem de estoque no sábado antes e dentro do período, o sistema desconta o que ficou guardado). ")+"Limpeza, gás e equipamentos entram como despesas (dá para mudar em Custos e taxas). Pelos custos cadastrados de cada produto, a margem bruta seria de "+pct(S.fat?(S.fat-S.imp-S.taxas-S.cmvProd)/S.fat:NaN)+"; se o lucro real ficar bem abaixo disso, há desperdício, estoque parado ou custo desatualizado. "+(period==="dia"?"No dia a dia o lucro oscila porque a compra entra no dia em que foi feita: confira na semana ou no mês. ":""):"")+(S.diasCx?"Dias com caixa fechado usam a venda bruta do caixa. "+(S.viaCompras?"":"O CMV das vendas sem registro no painel é estimado pela margem dos produtos"+(S.cmvEst?" ("+brl(S.cmvEst)+")":"")+". "):"Nenhum dia com caixa fechado: o faturamento vem só dos pedidos registrados. ")+(S.equipe?(S.equipeFonte==="equipe"?"A equipe usa as diárias lançadas na aba Equipe; ":"A equipe usa os pagamentos do fechamento de caixa (lance as diárias na aba Equipe para mais precisão); ")+"não repita salários nos custos fixos. ":"")+(ctot&&!S.viaCompras?"Compras lançadas no período: "+brl(ctot)+" (veja a aba Compras). ":"")+(()=>{const ds=fixedDays(),[ra,rb]=range();const tot=period==="dia"?1:daysBetween(ra,rb).length;return "Custos fixos contados dia a dia: os semanais valem 1/7 por dia e os mensais são divididos pelos dias de cada mês ("+brl(fixedMonthly())+" em "+MESES[+ra.slice(5,7)-1]+", com "+dim(ra)+" dias)"+(period!=="dia"&&ds.length<tot?". Como o período está em andamento, entram só os "+ds.length+" de "+tot+" dias que já passaram.":".")})();
   // compras e sobra de caixa
   const C=comprasStats(), sobra=S.fat-S.imp-S.taxas-C.tot-S.equipe-S.cf;
   $("kCompR").textContent=brl(C.tot); $("kCompRs").textContent=S.fat?pct(C.tot/S.fat)+" das vendas":(COMPRAS.length?COMPRAS.length+" compras":"nenhuma compra lançada");
@@ -1307,8 +1312,10 @@ function renderFixed(){
   $("cfgFixed").innerHTML=fixedDraft.map((f,i)=>`<div class="fx"><input type="text" data-i="${i}" data-f="nome" value="${esc(f.nome)}" aria-label="Nome do custo fixo"><span>R$ <input type="text" inputmode="decimal" data-i="${i}" data-f="valor" value="${typeof f.valor==="string"?esc(f.valor):(+f.valor||0).toFixed(2).replace(".",",")}" aria-label="Valor de ${esc(f.nome)}"></span><div class="fxfreq" role="radiogroup" aria-label="Cobrança de ${esc(f.nome)}"><button type="button" role="radio" data-fq="mes" data-i="${i}" aria-checked="${f.freq!=="semana"}">mês</button><button type="button" role="radio" data-fq="semana" data-i="${i}" aria-checked="${f.freq==="semana"}">semana</button></div><button type="button" class="x" data-rm="${i}" aria-label="Remover ${esc(f.nome)}">×</button><small class="fxeq" data-eq="${i}">${eqTxt(f)}</small></div>`).join("");
   fixedTot();
 }
-function eqTxt(f){const v=+num(f.valor)||0;if(!v)return "";return f.freq==="semana"?"≈ "+brl(v*SEM_MES)+" por mês":"≈ "+brl(v/SEM_MES)+" por semana"}
-function fixedTot(){const m=fixedDraft.reduce((a,f)=>a+fxMes(f),0);$("fixedTotal").textContent=brl(m);$("fixedWeek").textContent=brl(m/SEM_MES)}
+function eqTxt(f){const v=fxVal(f);if(!v)return "";const t=tzDate(new Date()),n=dim(t),mes=MESES[+t.slice(5,7)-1];
+  return f.freq==="semana"?"= "+brl(v/7)+" por dia · "+brl(v/7*n)+" em "+mes+" ("+n+" dias)":"= "+brl(v/n)+" por dia em "+mes+" ("+n+" dias) · "+brl(v/n*7)+" por semana"}
+function fixedTot(){const t=tzDate(new Date()),n=dim(t);const m=fixedDraft.reduce((a,f)=>a+fxMes(f,t),0),w=fixedDraft.reduce((a,f)=>a+fxDia(f,t)*7,0);
+  $("fixedMesLbl").textContent=MESES[+t.slice(5,7)-1]+" ("+n+" dias)";$("fixedTotal").textContent=brl(m);$("fixedWeek").textContent=brl(w)}
 function markDirty(){const nd=Object.keys(costDraft).length;$("cfgDirty").hidden=!nd&&!rateDraft&&!fixedDirty&&!modoDraft;$("cfgDirty").textContent=nd?nd+(nd===1?" custo alterado":" custos alterados")+" ainda não salvo"+(nd===1?"":"s"):"Alterações ainda não salvas";$("cfgMsg").textContent=""}
 $("cfgFixed").addEventListener("input",e=>{const t=e.target;if(t.dataset.i===undefined)return;const i=+t.dataset.i;fixedDraft[i][t.dataset.f]=t.value;fixedDirty=true;markDirty();const q=$("cfgFixed").querySelector(`[data-eq="${i}"]`);if(q)q.textContent=eqTxt(fixedDraft[i]);fixedTot()});
 $("cfgFixed").addEventListener("click",e=>{const fq=e.target.closest("[data-fq]");if(fq){const i=+fq.dataset.i;fixedDraft[i].freq=fq.dataset.fq;fixedDirty=true;markDirty();fq.parentNode.querySelectorAll("[data-fq]").forEach(x=>x.setAttribute("aria-checked",x===fq));const q=$("cfgFixed").querySelector(`[data-eq="${i}"]`);if(q)q.textContent=eqTxt(fixedDraft[i]);fixedTot();return}
