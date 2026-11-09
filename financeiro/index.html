@@ -214,7 +214,7 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
 .cfg input[type=text]{width:90px;padding:6px 8px;text-align:right}
 .cfg select{font:inherit;border:1px solid var(--line);border-radius:10px;padding:6px;background:#fff}
 .cfg input.bad,.fx input.bad{border-color:var(--danger);background:#fdecea}
-.fx{display:flex;gap:6px;align-items:center;margin-bottom:6px}
+.fx{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px}
 .fx>input{flex:1}
 .fx span{display:flex;gap:4px;align-items:center;color:var(--muted);font-weight:700}
 .fx span input{width:100px;text-align:right}
@@ -327,6 +327,14 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
 .ret-list .rm{border:1px solid var(--line);background:#fff;border-radius:8px;padding:4px 10px;color:var(--danger);font-weight:700;font-size:.8rem}
 .ret-list .empty{color:var(--muted);justify-content:center}
 .pag-note{margin-top:10px}
+
+.fxfreq{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;flex:none}
+.fxfreq button{border:0;background:#fff;padding:7px 10px;font:inherit;font-size:.82rem;font-weight:800;color:var(--muted);cursor:pointer}
+.fxfreq button+button{border-left:1px solid var(--line)}
+.fxfreq button[aria-checked=true]{background:#1f6b2a;color:#fff}
+.fxeq{flex-basis:100%;margin:-2px 0 0 2px;font-size:.75rem;color:var(--muted);font-weight:600}
+.fxeq:empty{display:none}
+@media (max-width:520px){.fx>input{flex-basis:100%}}
 </style>
 </head>
 <body>
@@ -598,10 +606,11 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
   </div>
   <div class="grid2">
     <div class="box">
-      <h3>Custos fixos por mês</h3>
+      <h3>Custos fixos</h3>
+      <p class="sub">Escolha se cada custo é cobrado por <b>mês</b> ou por <b>semana</b>. O sistema converte tudo (1 mês ≈ 4,33 semanas).</p>
       <div id="cfgFixed"></div>
       <button type="button" class="btn" id="addFixed">+ Adicionar custo fixo</button>
-      <p class="tot-line">Total por mês: <b id="fixedTotal">R$ 0,00</b></p>
+      <p class="tot-line">Total por mês: <b id="fixedTotal">R$ 0,00</b> · por semana: <b id="fixedWeek">R$ 0,00</b></p>
     </div>
     <div class="box">
       <h3>Taxas e impostos</h3>
@@ -748,7 +757,9 @@ function shift(n){
 /* ---------- cálculos ---------- */
 function extraPrices(){const m={};(MENU.cats||[]).forEach(c=>{if(c.id==="complementos")c.itens.forEach(i=>m[i.n]=+i.p||0)});return m}
 function costOf(n){const c=CFG.custos[n];return c?{custo:+c.custo||0,tipo:c.tipo||"produto"}:{custo:0,tipo:"produto"}}
-function fixedMonthly(){return (CFG.fixos||[]).reduce((a,f)=>a+(+f.valor||0),0)}
+const SEM_MES=52/12; // semanas por mês
+const fxMes=f=>(+num(f.valor)||0)*(f.freq==="semana"?SEM_MES:1);
+function fixedMonthly(){return (CFG.fixos||[]).reduce((a,f)=>a+fxMes(f),0)}
 function elapsedFrac(){if(period==="dia")return 1;const [a,b]=range(),t=tzDate(new Date());if(t>=b)return 1;if(t<a)return 0;
   const wk=(x,y)=>daysBetween(x,y).filter(d=>dow(d)!==0).length;const tot=wk(a,b);return tot?Math.min(1,wk(a,t)/tot):1}
 function fixedFactor(){return (period==="dia"?1/WORKDAYS:period==="semana"?6/WORKDAYS:period==="mes"?1:12)*elapsedFrac()}
@@ -892,7 +903,7 @@ function groupedCfg(labels,a,b,la,lb,c,lc){
 }
 
 /* ---------- desenho ---------- */
-function proLabore(){const f=(CFG.fixos||[]).find(x=>/pr[oó][\s-]*labore/i.test(x.nome||""));return f?(+f.valor||0)*fixedFactor():0}
+function proLabore(){const f=(CFG.fixos||[]).find(x=>/pr[oó][\s-]*labore/i.test(x.nome||""));return f?fxMes(f)*fixedFactor():0}
 let retDel=null;
 function renderRetiradas(S){
   const tot=RETIR.reduce((a,r)=>a+(+r.valor||0),0), pl=proLabore(), fica=S.ll-tot;
@@ -1293,12 +1304,15 @@ $("cfgDesp").addEventListener("click",e=>{const b=e.target.closest("[data-k]");i
 function renderFixed(){
   if(!fixedDraft.length) fixedDraft=JSON.parse(JSON.stringify(CFG.fixos||[]));
   if(document.activeElement&&document.activeElement.closest&&document.activeElement.closest("#cfgFixed")) return;
-  $("cfgFixed").innerHTML=fixedDraft.map((f,i)=>`<div class="fx"><input type="text" data-i="${i}" data-f="nome" value="${esc(f.nome)}" aria-label="Nome do custo fixo"><span>R$ <input type="text" inputmode="decimal" data-i="${i}" data-f="valor" value="${typeof f.valor==="string"?esc(f.valor):(+f.valor||0).toFixed(2).replace(".",",")}" aria-label="Valor de ${esc(f.nome)}"></span><button type="button" class="x" data-rm="${i}" aria-label="Remover ${esc(f.nome)}">×</button></div>`).join("");
-  $("fixedTotal").textContent=brl(fixedDraft.reduce((a,f)=>a+(num(f.valor)||0),0));
+  $("cfgFixed").innerHTML=fixedDraft.map((f,i)=>`<div class="fx"><input type="text" data-i="${i}" data-f="nome" value="${esc(f.nome)}" aria-label="Nome do custo fixo"><span>R$ <input type="text" inputmode="decimal" data-i="${i}" data-f="valor" value="${typeof f.valor==="string"?esc(f.valor):(+f.valor||0).toFixed(2).replace(".",",")}" aria-label="Valor de ${esc(f.nome)}"></span><div class="fxfreq" role="radiogroup" aria-label="Cobrança de ${esc(f.nome)}"><button type="button" role="radio" data-fq="mes" data-i="${i}" aria-checked="${f.freq!=="semana"}">mês</button><button type="button" role="radio" data-fq="semana" data-i="${i}" aria-checked="${f.freq==="semana"}">semana</button></div><button type="button" class="x" data-rm="${i}" aria-label="Remover ${esc(f.nome)}">×</button><small class="fxeq" data-eq="${i}">${eqTxt(f)}</small></div>`).join("");
+  fixedTot();
 }
+function eqTxt(f){const v=+num(f.valor)||0;if(!v)return "";return f.freq==="semana"?"≈ "+brl(v*SEM_MES)+" por mês":"≈ "+brl(v/SEM_MES)+" por semana"}
+function fixedTot(){const m=fixedDraft.reduce((a,f)=>a+fxMes(f),0);$("fixedTotal").textContent=brl(m);$("fixedWeek").textContent=brl(m/SEM_MES)}
 function markDirty(){const nd=Object.keys(costDraft).length;$("cfgDirty").hidden=!nd&&!rateDraft&&!fixedDirty&&!modoDraft;$("cfgDirty").textContent=nd?nd+(nd===1?" custo alterado":" custos alterados")+" ainda não salvo"+(nd===1?"":"s"):"Alterações ainda não salvas";$("cfgMsg").textContent=""}
-$("cfgFixed").addEventListener("input",e=>{const t=e.target;if(t.dataset.i===undefined)return;fixedDraft[+t.dataset.i][t.dataset.f]=t.value;fixedDirty=true;markDirty();$("fixedTotal").textContent=brl(fixedDraft.reduce((a,f)=>a+(num(f.valor)||0),0))});
-$("cfgFixed").addEventListener("click",e=>{const b=e.target.closest("[data-rm]");if(!b)return;fixedDraft.splice(+b.dataset.rm,1);if(!fixedDraft.length)fixedDraft.push({nome:"",valor:0});fixedDirty=true;markDirty();renderFixed()});
+$("cfgFixed").addEventListener("input",e=>{const t=e.target;if(t.dataset.i===undefined)return;const i=+t.dataset.i;fixedDraft[i][t.dataset.f]=t.value;fixedDirty=true;markDirty();const q=$("cfgFixed").querySelector(`[data-eq="${i}"]`);if(q)q.textContent=eqTxt(fixedDraft[i]);fixedTot()});
+$("cfgFixed").addEventListener("click",e=>{const fq=e.target.closest("[data-fq]");if(fq){const i=+fq.dataset.i;fixedDraft[i].freq=fq.dataset.fq;fixedDirty=true;markDirty();fq.parentNode.querySelectorAll("[data-fq]").forEach(x=>x.setAttribute("aria-checked",x===fq));const q=$("cfgFixed").querySelector(`[data-eq="${i}"]`);if(q)q.textContent=eqTxt(fixedDraft[i]);fixedTot();return}
+  const b=e.target.closest("[data-rm]");if(!b)return;fixedDraft.splice(+b.dataset.rm,1);if(!fixedDraft.length)fixedDraft.push({nome:"",valor:0});fixedDirty=true;markDirty();renderFixed()});
 $("addFixed").addEventListener("click",()=>{fixedDraft.push({nome:"",valor:0});fixedDirty=true;renderFixed();const ins=$("cfgFixed").querySelectorAll('input[data-f="nome"]');ins[ins.length-1].focus()});
 ["rDeb","rCred","rPix","rMaq","rImp"].forEach(id=>$(id).addEventListener("input",()=>{rateDraft={};["rDeb","rCred","rPix","rMaq","rImp"].forEach(k=>rateDraft[k]=$(k).value);markDirty()}));
 $("cfgCosts").addEventListener("input",e=>{const t=e.target;if(t.dataset.f!=="custo")return;const tr=t.closest("tr"),n=tr.dataset.n;
@@ -1312,7 +1326,7 @@ $("cfgSave").addEventListener("click",async()=>{
     if(raw===""){if(d.tipo==="servico")custos[n]={custo:0,tipo:"servico"};else delete custos[n];return}
     const v=num(raw); if(isNaN(v)||v<0){bad=bad||n;return} custos[n]={custo:r2(v),tipo:d.tipo||"produto"}});
   document.querySelectorAll("#cfgCosts tr[data-n]").forEach(r=>{const n=r.dataset.n,d=costDraft[n];r.querySelector("input[data-f=custo]").classList.toggle("bad",!!d&&bad===n)});
-  const fixos=[];fixedDraft.forEach(f=>{const v=num(f.valor);if(String(f.nome).trim()||v>0){if(isNaN(v)||v<0)bad=bad||(f.nome||"custo fixo");else fixos.push({nome:String(f.nome).trim()||"Custo fixo",valor:r2(v)})}});
+  const fixos=[];fixedDraft.forEach(f=>{const v=num(f.valor);if(String(f.nome).trim()||v>0){if(isNaN(v)||v<0)bad=bad||(f.nome||"custo fixo");else fixos.push(Object.assign({nome:String(f.nome).trim()||"Custo fixo",valor:r2(v)},f.freq==="semana"?{freq:"semana"}:{}))}});
   const rate=id=>{const v=num($(id).value);return isNaN(v)?0:v};
   const rates={debito:rate("rDeb"),credito:rate("rCred"),pix:rate("rPix"),maquina:$("rMaq").value.trim()===""?null:rate("rMaq")}, imposto=rate("rImp");
   if([rates.debito,rates.credito,rates.pix,rates.maquina||0,imposto].some(v=>v<0||v>100)) bad=bad||"as taxas (use de 0 a 100)";
