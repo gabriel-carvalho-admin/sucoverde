@@ -326,6 +326,18 @@ p.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px;font-siz
 .conf .hl b{font-size:1.25rem}
 .cx-in input{width:112px !important}
 .cx-row>span:first-child{min-width:0}
+
+.offbox{margin-top:12px}
+.offform,.offdone{background:#f8f4ec;border:1px solid var(--line);border-radius:12px;padding:12px;display:grid;gap:8px}
+.offform .lbl{margin:0}
+.offchips{display:flex;flex-wrap:wrap;gap:6px}
+.offchips button{border:1px solid var(--line);background:#fff;border-radius:999px;padding:7px 12px;font:inherit;font-weight:700;font-size:.88rem;color:var(--bark);cursor:pointer}
+.offchips button[aria-checked=true]{background:var(--bark);border-color:var(--bark);color:#fff}
+.offform input{font:inherit;border:1px solid var(--line);border-radius:10px;padding:9px 10px}
+.offbtns{gap:8px;flex-wrap:wrap}
+.offdone p{margin:0;font-size:.92rem}
+.pill-off{display:inline-block;background:#e8e3da;color:#52514e;border-radius:999px;padding:2px 10px;font-weight:800;font-size:.8rem}
+.hrow.off .h-t{color:var(--muted)}
 </style>
 </head>
 <body>
@@ -363,9 +375,27 @@ p.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px;font-siz
       <button type="button" class="btn" id="dNext" aria-label="Próximo dia">›</button>
     </div>
     <p class="status-line" id="savedInfo"></p>
+    <div class="offbox" id="offBox">
+      <button type="button" class="btn" id="offBtn">Hoje não abrimos</button>
+      <div class="offform" id="offForm" hidden>
+        <p class="lbl">Por que a lanchonete não abriu?</p>
+        <div class="offchips" id="offChips" role="radiogroup" aria-label="Motivo">
+          <button type="button" role="radio" aria-checked="true" data-m="Folga da equipe">Folga da equipe</button>
+          <button type="button" role="radio" aria-checked="false" data-m="Feriado">Feriado</button>
+          <button type="button" role="radio" aria-checked="false" data-m="Manutenção">Manutenção</button>
+          <button type="button" role="radio" aria-checked="false" data-m="Outro">Outro</button>
+        </div>
+        <input type="text" id="offObs" maxlength="100" placeholder="Observação (opcional)" aria-label="Observação">
+        <div class="row offbtns"><button type="button" class="btn solid" id="offSave">Confirmar: não abrimos</button><button type="button" class="btn" id="offCancel">Cancelar</button></div>
+      </div>
+      <div class="offdone" id="offDone" hidden>
+        <p id="offText"></p>
+        <button type="button" class="btn" id="offUndo">Desfazer: abrimos neste dia</button>
+      </div>
+    </div>
   </section>
 
-  <section class="card">
+  <section class="card" id="cardEntradas">
     <h2>Entradas do dia</h2>
     <div class="cx-fields">
       <label class="cx-row" for="fDinheiro"><span><b>Dinheiro líquido</b><small>O que ficou na gaveta no fim do dia</small></span><span class="cx-in">R$ <input type="text" inputmode="decimal" id="fDinheiro" placeholder="0,00"></span></label>
@@ -387,7 +417,7 @@ p.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px;font-siz
     <input type="text" id="fObs" placeholder="Ex.: faltou troco, sangria, vale…">
   </section>
 
-  <section class="card">
+  <section class="card" id="cardConf">
     <h2>Conferência com o sistema</h2>
     <div class="conf">
       <div><span>Venda bruta diária (caixa)</span><b id="cfVB">R$ 0,00</b></div>
@@ -450,6 +480,7 @@ function backend(){
       watchOrders(dia,cb,err){return F.onSnapshot(F.query(F.collection(db,"pedidos"),F.where("dia","==",dia)),s=>cb(s.docs.map(plain)),err)},
       async comprasDia(dia){const s=await F.getDocs(F.query(F.collection(db,"compras"),F.where("dia","==",dia)));return s.docs.map(plain)},
       save(dia,d){return F.setDoc(F.doc(db,"caixa",dia),Object.assign({},d,{atualizado:F.serverTimestamp()}))},
+      removeDay(dia){return F.deleteDoc(F.doc(db,"caixa",dia))},
       watchRecent(cb,err){return F.onSnapshot(F.query(F.collection(db,"caixa"),F.orderBy("dia","desc"),F.limit(10)),s=>cb(s.docs.map(plain)),err)}
     };
   })();
@@ -496,7 +527,31 @@ document.querySelectorAll(".cx-in input").forEach(i=>i.addEventListener("blur",(
 const order=[...FIELDS.map(x=>x[1]),...PAYS.map(x=>x[1])];
 order.forEach((id,i)=>$(id).addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();const n=order[i+1];if(n)$(n).focus();else $("fObs").focus()}}));
 
+let offMot="Folga da equipe";
+function offView(){
+  const off=!!(saved&&saved.fechado);
+  $("cardEntradas").hidden=off; $("cardConf").hidden=off; $("saveBar").hidden=off;
+  $("offBtn").hidden=off||!!(saved&&!saved.fechado)||!$("offForm").hidden; $("offDone").hidden=!off;
+  if(off){$("offForm").hidden=true;$("offText").innerHTML=`A lanchonete <b>não abriu</b> neste dia: ${esc(saved.motivo||"sem motivo")}${saved.obs?" · "+esc(saved.obs):""}. O Financeiro conta este dia como sem funcionamento, e não como caixa esquecido.`}
+}
+$("offBtn").addEventListener("click",()=>{$("offForm").hidden=false;$("offBtn").hidden=true});
+$("offCancel").addEventListener("click",()=>{$("offForm").hidden=true;offView()});
+$("offChips").addEventListener("click",e=>{const b=e.target.closest("[data-m]");if(!b)return;offMot=b.dataset.m;$("offChips").querySelectorAll("[data-m]").forEach(x=>x.setAttribute("aria-checked",x===b))});
+$("offSave").addEventListener("click",async()=>{
+  const d={dia:day,fechado:true,motivo:offMot,obs:$("offObs").value.trim(),vendaBruta:0,por:be.email?be.email():""};
+  $("offSave").disabled=true;
+  try{await be.save(day,d);dirty=false;$("offObs").value="";toast(br(day)+" marcado como dia sem funcionamento")}
+  catch(err){toast(err&&err.code==="permission-denied"?"Sua conta não tem permissão.":"Não consegui salvar. Confira a internet.")}
+  $("offSave").disabled=false;
+});
+$("offUndo").addEventListener("click",async()=>{
+  const b=$("offUndo"); if(b.dataset.arm!=="1"){b.dataset.arm="1";b.textContent="Toque de novo para confirmar";setTimeout(()=>{b.dataset.arm="";b.textContent="Desfazer: abrimos neste dia"},3500);return}
+  b.dataset.arm="";b.textContent="Desfazer: abrimos neste dia";
+  try{await be.removeDay(day);toast("Pronto: agora você pode lançar o fechamento de "+br(day))}catch(err){toast("Não consegui desfazer. Tente de novo.")}
+});
 function savedLine(){
+  offView();
+  if(saved&&saved.fechado){$("savedInfo").innerHTML=`<span class="pill-off">Não abrimos</span> ${WD[dow(day)]}, ${br(day)}`;return}
   if(!saved){$("savedInfo").innerHTML=`<span class="pill-open">Caixa ainda não fechado</span> ${WD[dow(day)]}, ${br(day)}`;return}
   const t=saved.atualizado&&saved.atualizado.toDate?new Intl.DateTimeFormat("pt-BR",{timeZone:"America/Fortaleza",day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}).format(saved.atualizado.toDate()):"";
   $("savedInfo").innerHTML=`<span class="pill-ok">Caixa fechado</span> ${WD[dow(day)]}, ${br(day)}${t?" · salvo em "+t:""}${saved.por?" por "+esc(saved.por):""}. Você pode corrigir e salvar de novo.`;
@@ -534,7 +589,7 @@ $("saveBtn").addEventListener("click",async()=>{
 });
 
 function renderHist(list){
-  $("hist").innerHTML=list.length?list.map(c=>`<li><button type="button" class="hrow" data-d="${esc(c.dia)}"><span><b>${WD[dow(c.dia)]}, ${br(c.dia)}</b><small>Dinheiro ${brl(c.dinheiro)} · Pix ${brl(c.pix)} · Cartão ${brl(c.cartao)}</small></span><b class="h-t">${brl(c.vendaBruta)}</b></button></li>`).join(""):`<li class="empty">Nenhum fechamento salvo ainda.</li>`;
+  $("hist").innerHTML=list.length?list.map(c=>c.fechado?`<li><button type="button" class="hrow off" data-d="${esc(c.dia)}"><span><b>${WD[dow(c.dia)]}, ${br(c.dia)}</b><small>Não abrimos · ${esc(c.motivo||"")}</small></span><b class="h-t">—</b></button></li>`:`<li><button type="button" class="hrow" data-d="${esc(c.dia)}"><span><b>${WD[dow(c.dia)]}, ${br(c.dia)}</b><small>Dinheiro ${brl(c.dinheiro)} · Pix ${brl(c.pix)} · Cartão ${brl(c.cartao)}</small></span><b class="h-t">${brl(c.vendaBruta)}</b></button></li>`).join(""):`<li class="empty">Nenhum fechamento salvo ainda.</li>`;
 }
 $("hist").addEventListener("click",e=>{const b=e.target.closest("[data-d]");if(b){go(b.dataset.d);window.scrollTo({top:0,behavior:"smooth"})}});
 

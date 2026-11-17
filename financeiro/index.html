@@ -335,6 +335,8 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
 .fxeq{flex-basis:100%;margin:-2px 0 0 2px;font-size:.75rem;color:var(--muted);font-weight:600}
 .fxeq:empty{display:none}
 @media (max-width:520px){.fx>input{flex-basis:100%}}
+.flag.off{background:#e8e3da;color:#52514e}
+.offrow td{color:var(--muted)}
 </style>
 </head>
 <body>
@@ -730,7 +732,7 @@ async function loadOrders(a,b){
 
 /* ---------- estado ---------- */
 let period="mes", anchor=tzDate(new Date()), tab="resumo";
-let MENU=DEFAULT_MENU, CFG=null, ORDERS=[], STATS=null, YEARMONTHS=null, COMPRAS=[], CAIXA=[], EQUIPE=[], TEAM=null, VENDAS=[], AVCAT={}, ESTQ=[], PERDAS=[], RETIR=[];
+let MENU=DEFAULT_MENU, CFG=null, ORDERS=[], STATS=null, YEARMONTHS=null, COMPRAS=[], CAIXA=[], EQUIPE=[], TEAM=null, VENDAS=[], AVCAT={}, ESTQ=[], PERDAS=[], RETIR=[], OFF={};
 const DEFAULT_CFG={custos:{},fixos:[{nome:"Aluguel",valor:0},{nome:"Energia",valor:0},{nome:"Água",valor:0},{nome:"Gás",valor:0},{nome:"Salários e encargos",valor:0},{nome:"Internet e telefone",valor:0},{nome:"Contador",valor:0}],taxas:{debito:0,credito:0,pix:0},imposto:0};
 function note(t){$("note").textContent=t||"";$("note").hidden=!t}
 
@@ -931,7 +933,7 @@ function renderResumo(S){
   const eqDia=equipeByDay();
   const temDado=d=>dow(d)!==0||(S.byDay[d]||0)>0||comprasDia[d]||eqDia[d];   // domingo só aparece se teve venda ou compra
   const nd=daysBetween(a,b>tzDate(new Date())?tzDate(new Date()):b).filter(d=>dow(d)!==0||(S.byDay[d]||0)>0).length;
-  $("kFatSub").textContent=(S.diasCx?(S.diasCx===1?"com caixa fechado":S.diasCx+" dias com caixa fechado")+(S.bancaTot?" · "+brl(S.bancaTot)+" na banca":"")+(period==="dia"?"":" · "):"")+(period==="dia"?(S.diasCx?"":"só pedidos registrados (caixa não fechado)"):"média de "+brl(nd?S.fat/nd:0)+" por dia aberto");
+  $("kFatSub").textContent=(S.diasCx?(S.diasCx===1?"com caixa fechado":S.diasCx+" dias com caixa fechado")+(S.bancaTot?" · "+brl(S.bancaTot)+" na banca":"")+(period==="dia"?"":" · "):"")+(period==="dia"?(S.diasCx?"":"só pedidos registrados (caixa não fechado)"):"média de "+brl(nd?S.fat/nd:0)+" por dia aberto")+(()=>{const [a,b]=range();const n=Object.keys(OFF).filter(d=>d>=a&&d<=b).length;return n?" · "+n+(n===1?" dia sem funcionamento":" dias sem funcionamento"):""})();
   $("kPed").textContent=S.n; $("kTicket").textContent="ticket médio "+brl(S.ticket);
   $("kLB").textContent=brl(S.lb); $("kLBm").textContent="margem "+pct(S.fat?S.lb/S.fat:NaN);
   $("kLL").textContent=brl(S.ll); $("kLLm").textContent="margem "+pct(S.fat?S.ll/S.fat:NaN);
@@ -1033,9 +1035,9 @@ function cxRows(){
   const [a,b]=range(), today=tzDate(new Date()), end=b>today?today:b;
   const site={}; ORDERS.forEach(o=>{if(o.origem==="site"&&o.status!=="cancelado")site[o.dia]=(site[o.dia]||0)+(+o.total||0)});
   const cx={}; CAIXA.forEach(c=>cx[c.dia]=c); const av=avDay();
-  const days=a>end?[]:daysBetween(a,end).filter(d=>dow(d)!==0||cx[d]||site[d]||av[d]||ORDERS.some(o=>o.dia===d&&o.status!=="cancelado"));
+  const days=a>end?[]:daysBetween(a,end).filter(d=>dow(d)!==0||cx[d]||site[d]||av[d]||OFF[d]||ORDERS.some(o=>o.dia===d&&o.status!=="cancelado"));
   return days.map(d=>{const c=cx[d],s=site[d]||0;const pg=c&&c.pagamentos?Object.values(c.pagamentos).reduce((x,y)=>x+(+y||0),0):0;
-    return {d,c,site:s,av:av[d]||0,vb:c?+c.vendaBruta||0:null,banca:c?(+c.vendaBruta||0)-s:null,din:c?(+c.dinheiro||0):0,pix:c?(+c.pix||0):0,cart:c?(+c.cartao||0):0,comp:c?(+c.compras||0):0,pg,pgs:c&&c.pagamentos||{}}});
+    return {off:OFF[d]||null,d,c,site:s,av:av[d]||0,vb:c?+c.vendaBruta||0:null,banca:c?(+c.vendaBruta||0)-s:null,din:c?(+c.dinheiro||0):0,pix:c?(+c.pix||0):0,cart:c?(+c.cartao||0):0,comp:c?(+c.compras||0):0,pg,pgs:c&&c.pagamentos||{}}});
 }
 function renderCaixa(){
   const rows=cxRows(), closed=rows.filter(r=>r.c);
@@ -1049,7 +1051,7 @@ function renderCaixa(){
   $("kAv").textContent=brl(avT); $("kAvPct").textContent=(totalAll?pct(avT/totalAll)+" do faturamento · ":"")+VENDAS.length+(VENDAS.length===1?" venda":" vendas");
   $("kTotCx").textContent=brl(totalAll);
   $("kEquipe").textContent=brl(pgT); $("kEquipeDet").textContent=Object.entries(pg).filter(x=>x[1]>0).map(([k,v])=>k+" "+brl(v)).join(" · ");
-  const miss=rows.filter(r=>!r.c&&r.d<tzDate(new Date())&&(dow(r.d)!==0||r.site>0));
+  const miss=rows.filter(r=>!r.c&&!r.off&&r.d<tzDate(new Date())&&(dow(r.d)!==0||r.site>0));
   $("cxMissing").hidden=!miss.length;
   $("cxMissing").innerHTML=miss.length?`${miss.length===1?"1 dia":miss.length+" dias"} sem fechamento de caixa: ${miss.slice(0,6).map(r=>br(r.d)).join(", ")}${miss.length>6?"…":""}. <a href="../caixa/">Fechar caixa</a>`:"";
   // gráfico empilhado (por dia, ou por mês no ano)
@@ -1067,7 +1069,7 @@ function renderCaixa(){
   const names=[...new Set(closed.flatMap(r=>Object.keys(r.pgs)))];
   $("cxTable").innerHTML=rows.length?`<thead><tr><th>Dia</th><th class="num">Venda bruta</th><th class="num">Pedidos site</th><th class="num">Banca (dif.)</th><th class="num">Venda avulsa</th><th class="num">Total do dia</th><th class="num">Dinheiro</th><th class="num">Pix</th><th class="num">Cartão</th><th class="num">Compras</th>${names.map(n=>`<th class="num">${esc(n)}</th>`).join("")}</tr></thead><tbody>`+
     rows.slice().reverse().map(r=>r.c?`<tr><td>${WD[dow(r.d)]} ${br(r.d)}</td><td class="num">${brl(r.vb)}</td><td class="num">${brl(r.site)}</td><td class="num ${r.banca<0?"neg":""}">${brl(r.banca)}</td><td class="num">${brl(r.av)}</td><td class="num"><b>${brl(r.vb+r.av)}</b></td><td class="num">${brl(r.din)}</td><td class="num">${brl(r.pix)}</td><td class="num">${brl(r.cart)}</td><td class="num">${brl(r.comp)}</td>${names.map(n=>`<td class="num">${brl(r.pgs[n]||0)}</td>`).join("")}</tr>`
-      :`<tr class="miss"><td>${WD[dow(r.d)]} ${br(r.d)}</td><td colspan="3"><span class="flag">sem fechamento</span>${r.site?" · site: "+brl(r.site):""}</td><td class="num">${r.av?brl(r.av):""}</td><td class="num">${r.av?"<b>"+brl(r.av)+"</b>":""}</td><td colspan="${4+names.length}"></td></tr>`).join("")+
+      :r.off?`<tr class="offrow"><td>${WD[dow(r.d)]} ${br(r.d)}</td><td colspan="3"><span class="flag off">não abrimos</span> ${esc(r.off.motivo||"")}</td><td class="num">${r.av?brl(r.av):""}</td><td class="num">${r.av?"<b>"+brl(r.av)+"</b>":""}</td><td colspan="${4+names.length}"></td></tr>`:`<tr class="miss"><td>${WD[dow(r.d)]} ${br(r.d)}</td><td colspan="3"><span class="flag">sem fechamento</span>${r.site?" · site: "+brl(r.site):""}</td><td class="num">${r.av?brl(r.av):""}</td><td class="num">${r.av?"<b>"+brl(r.av)+"</b>":""}</td><td colspan="${4+names.length}"></td></tr>`).join("")+
     (rows.length>1?`<tr class="totrow"><td>Total</td><td class="num">${brl(vb)}</td><td class="num">${brl(site)}</td><td class="num">${brl(banca)}</td><td class="num">${brl(avT)}</td><td class="num">${brl(totalAll)}</td><td class="num">${brl(closed.reduce((a,r)=>a+r.din,0))}</td><td class="num">${brl(closed.reduce((a,r)=>a+r.pix,0))}</td><td class="num">${brl(closed.reduce((a,r)=>a+r.cart,0))}</td><td class="num">${brl(closed.reduce((a,r)=>a+r.comp,0))}</td>${names.map(n=>`<td class="num">${brl(pg[n]||0)}</td>`).join("")}</tr>`:"")+"</tbody>"
     :`<tbody><tr><td class="empty">Nenhum dia neste período.</td></tr></tbody>`;
   // lista das vendas avulsas
@@ -1387,7 +1389,7 @@ async function load(){
   const seq=++loadSeq; if(!wkDirty){const [ra,rb]=range(),td=tzDate(new Date());wk=weekStart(td>=ra&&td<=rb?td:anchor)} $("perLabel").textContent=label();
   document.querySelectorAll("#periodBtns button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.p===period));
   note("Carregando vendas...");
-  try{const [a,b]=range();const [vd,o,c,x,eq,es,pd,rt]=await Promise.all([be.vendas?be.vendas(a,b).catch(()=>[]):Promise.resolve([]),loadOrders(a,b),be.compras(a,b).catch(()=>[]),be.caixa?be.caixa(a,b).catch(()=>[]):Promise.resolve([]),be.equipe?be.equipe(addDays(weekStart(a),-1),b).catch(()=>[]):Promise.resolve([]),be.estoque?be.estoque().catch(()=>[]):Promise.resolve([]),be.perdas?be.perdas(a,b).catch(()=>[]):Promise.resolve([]),be.retiradas?be.retiradas(a,b).catch(()=>[]):Promise.resolve([])]); if(seq!==loadSeq)return; ESTQ=(es||[]).filter(c=>c.status==="fechada").sort((x,y)=>x.dia.localeCompare(y.dia)); PERDAS=pd||[]; RETIR=rt||[]; ORDERS=o; CAIXA=x; EQUIPE=eq; VENDAS=vd; COMPRAS=c.sort((x,y)=>(y.dia||"").localeCompare(x.dia||"")); note(""); recompute(); if(tab==="equipe"&&!wkDirty)loadWeek();}
+  try{const [a,b]=range();const [vd,o,c,x,eq,es,pd,rt]=await Promise.all([be.vendas?be.vendas(a,b).catch(()=>[]):Promise.resolve([]),loadOrders(a,b),be.compras(a,b).catch(()=>[]),be.caixa?be.caixa(a,b).catch(()=>[]):Promise.resolve([]),be.equipe?be.equipe(addDays(weekStart(a),-1),b).catch(()=>[]):Promise.resolve([]),be.estoque?be.estoque().catch(()=>[]):Promise.resolve([]),be.perdas?be.perdas(a,b).catch(()=>[]):Promise.resolve([]),be.retiradas?be.retiradas(a,b).catch(()=>[]):Promise.resolve([])]); if(seq!==loadSeq)return; ESTQ=(es||[]).filter(c=>c.status==="fechada").sort((x,y)=>x.dia.localeCompare(y.dia)); PERDAS=pd||[]; RETIR=rt||[]; ORDERS=o; OFF={}; (x||[]).forEach(c=>{if(c&&c.fechado)OFF[c.dia]=c}); CAIXA=(x||[]).filter(c=>c&&!c.fechado); EQUIPE=eq; VENDAS=vd; COMPRAS=c.sort((x,y)=>(y.dia||"").localeCompare(x.dia||"")); note(""); recompute(); if(tab==="equipe"&&!wkDirty)loadWeek();}
   catch(err){if(seq!==loadSeq)return; note(err&&err.code==="permission-denied"?"Sua conta não tem acesso às vendas.":"Não consegui carregar as vendas. Confira a internet e tente de novo.")}
 }
 function setTab(t){tab=t;document.querySelectorAll(".tabs button").forEach(b=>b.setAttribute("aria-selected",b.dataset.t===t));["resumo","melhores","produtos","caixa","compras","equipe","config"].forEach(x=>$("t-"+x).hidden=x!==t);if(t==="config"){fixedDraft=[];renderConfig();refreshCfg()} if(t==="equipe")loadWeek(); Object.values(charts).forEach(c=>c.resize())}
