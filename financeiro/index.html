@@ -932,7 +932,7 @@ function renderResumo(S){
   const comprasDia={}; COMPRAS.forEach(c=>comprasDia[c.dia]=1);
   const eqDia=equipeByDay();
   const temDado=d=>dow(d)!==0||(S.byDay[d]||0)>0||comprasDia[d]||eqDia[d];   // domingo só aparece se teve venda ou compra
-  const nd=daysBetween(a,b>tzDate(new Date())?tzDate(new Date()):b).filter(d=>dow(d)!==0||(S.byDay[d]||0)>0).length;
+  const tdy=tzDate(new Date()), nd=daysBetween(a,b>tdy?tdy:b).filter(d=>!OFF[d]&&(d<tdy||(S.byDay[d]||0)>0)&&(dow(d)!==0||(S.byDay[d]||0)>0)).length;
   $("kFatSub").textContent=(S.diasCx?(S.diasCx===1?"com caixa fechado":S.diasCx+" dias com caixa fechado")+(S.bancaTot?" · "+brl(S.bancaTot)+" na banca":"")+(period==="dia"?"":" · "):"")+(period==="dia"?(S.diasCx?"":"só pedidos registrados (caixa não fechado)"):"média de "+brl(nd?S.fat/nd:0)+" por dia aberto")+(()=>{const [a,b]=range();const n=Object.keys(OFF).filter(d=>d>=a&&d<=b).length;return n?" · "+n+(n===1?" dia sem funcionamento":" dias sem funcionamento"):""})();
   $("kPed").textContent=S.n; $("kTicket").textContent="ticket médio "+brl(S.ticket);
   $("kLB").textContent=brl(S.lb); $("kLBm").textContent="margem "+pct(S.fat?S.lb/S.fat:NaN);
