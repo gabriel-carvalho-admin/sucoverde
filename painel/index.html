@@ -28,7 +28,7 @@ button{font:inherit;cursor:pointer}
 header{padding:16px 0 6px;display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between}
 h1{font-family:var(--display);color:var(--bark);font-size:1.6rem;margin:0;line-height:1}
 h1 small{display:block;font-family:var(--body);font-size:.85rem;color:var(--muted);font-weight:700;margin-top:4px}
-.day{display:flex;gap:6px;align-items:center}
+.day{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .day input{font:inherit;border:1px solid var(--line);border-radius:10px;padding:7px 10px;background:#fff;color:var(--ink)}
 .btn{border:1px solid var(--line);background:var(--card);color:var(--bark);font-weight:800;border-radius:10px;padding:8px 12px}
 .btn.solid{background:var(--leaf);border-color:var(--leaf);color:#fff}
@@ -168,6 +168,31 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
 #printArea{display:none}
 .estnote{background:#fdf0dc;border-color:#f1d3a6}
 .estnote a{color:#1f6b2a;font-weight:800;margin-left:4px}
+.func{margin-top:12px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:10px 14px}
+.func-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.func-head small{color:var(--muted);font-weight:600}
+.fstat{font-weight:800}
+.fstat::before{content:"";display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;background:currentColor;vertical-align:1px}
+.fstat.on{color:#1f6b2a}.fstat.off{color:#b4321c}
+.func-body{margin-top:10px;display:grid;gap:10px}
+.func-body[hidden]{display:none}
+.func-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
+.func-row.wrapr{flex-wrap:wrap}
+.flbl{font-weight:800;font-size:.85rem;color:var(--muted);min-width:96px}
+.func-row input[type=time]{width:132px}
+.func-row input[type=date]{width:150px}
+.func{box-sizing:border-box;max-width:100%}
+@media (max-width:520px){.flbl{flex-basis:100%;min-width:0}.func-row input[type=text]{min-width:0;flex-basis:100%}}
+.func-row input{font:inherit;border:1px solid var(--line);border-radius:10px;padding:7px 9px}
+.func-row input[type=text]{flex:1;min-width:150px}
+.fdias{display:flex;flex-wrap:wrap;gap:4px}
+.fdias button{border:1px solid var(--line);background:#fff;border-radius:999px;padding:6px 10px;font:inherit;font-weight:700;font-size:.85rem;color:var(--muted);cursor:pointer}
+.fdias button[aria-pressed=true]{background:#1f6b2a;border-color:#1f6b2a;color:#fff}
+.func-sep{border-top:1px solid var(--line)}
+.fclosed{list-style:none;margin:0;padding:0}
+.fclosed li{display:flex;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid var(--line);padding:7px 0;font-size:.92rem}
+.fclosed li.empty{color:var(--muted);border:0}
+.fnote{margin:0;font-size:.82rem;color:var(--muted)}
 @media print{
   @page{margin:3mm}
   body{background:#fff}
@@ -227,6 +252,24 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
 <p class="note sound" id="soundNote" hidden><span>Toque aqui para ligar o som de novos pedidos.</span></p>
 
 <div id="pedidosView">
+<section class="func wrap" id="funcBox" aria-label="Funcionamento do site">
+  <div class="func-head">
+    <div><span id="funcStatus" class="fstat">—</span><small id="funcSub"></small></div>
+    <button type="button" class="btn" id="funcToggle" aria-expanded="false">Horário e dias fechados</button>
+  </div>
+  <div class="func-body" id="funcBody" hidden>
+    <div class="func-row"><span class="flbl">Horário</span><input type="time" id="hAbre" aria-label="Abre às"><span>às</span><input type="time" id="hFecha" aria-label="Fecha às"></div>
+    <div class="func-row"><span class="flbl">Dias</span><div class="fdias" id="hDias" role="group" aria-label="Dias de funcionamento"></div></div>
+    <div class="func-sep"></div>
+    <div class="func-row wrapr"><span class="flbl">Fechar um dia</span>
+      <button type="button" class="btn" id="hTomorrow">Fechar amanhã</button>
+      <button type="button" class="btn" id="hTodayBtn">Fechar hoje</button>
+    </div>
+    <div class="func-row wrapr"><input type="date" id="hDia" aria-label="Dia que vai fechar"><input type="text" id="hMot" placeholder="Motivo (ex.: folga da equipe)" maxlength="60" aria-label="Motivo"><button type="button" class="btn solid" id="hAdd">Fechar este dia</button></div>
+    <ul class="fclosed" id="hList"></ul>
+    <p class="fnote" id="hMsg">As mudanças valem na hora no site de pedidos.</p>
+  </div>
+</section>
 <section class="tiles" aria-label="Resumo do dia">
   <div class="tile"><span>Faturamento</span><b id="tRev">R$ 0,00</b></div>
   <div class="tile"><span>Pedidos</span><b id="tCount">0</b></div>
@@ -377,12 +420,50 @@ function backend(){
       update(id,patch){return F.updateDoc(F.doc(db,"pedidos",id),patch)},
       watchMenu(cb){return F.onSnapshot(F.doc(db,"config","cardapio"),s=>cb(s.exists()?s.data():null),e=>console.warn(e))},
       saveMenu(d){return F.setDoc(F.doc(db,"config","cardapio"),d)},
+      saveHorario(h){return F.updateDoc(F.doc(db,"config","cardapio"),{horario:h})},
       mergeCosts(m){return F.setDoc(F.doc(db,"config","financeiro"),{custos:m},{merge:true})}
     };
   })();
   return beP;
 }
 let be=null;
+/* ---------- funcionamento: horário, dias da semana e dias fechados ---------- */
+const HDIAS=["dom","seg","ter","qua","qui","sex","sáb"], HDIAS_L=["domingo","segunda","terça","quarta","quinta","sexta","sábado"];
+function hCfg(src){const h=(src&&src.horario)||{};return {abre:h.abre||"06:00",fecha:h.fecha||"12:00",dias:Array.isArray(h.dias)?h.dias:[1,2,3,4,5,6],fechados:(h.fechados&&typeof h.fechados==="object")?h.fechados:{}}}
+const hMin=s=>{const p=String(s||"0:0").split(":").map(Number);return (p[0]||0)*60+(p[1]||0)};
+const hTxt=s=>{const p=String(s).split(":").map(Number);return p[1]?p[0]+"h"+String(p[1]).padStart(2,"0"):p[0]+"h"};
+const hAdd=(s,n)=>{const p=s.split("-").map(Number);return new Date(Date.UTC(p[0],p[1]-1,p[2])+n*864e5).toISOString().slice(0,10)};
+const hDow=s=>{const p=s.split("-").map(Number);return new Date(Date.UTC(p[0],p[1]-1,p[2])).getUTCDay()};
+const hBr=s=>s.slice(8,10)+"/"+s.slice(5,7);
+function hNowMin(){const parts=new Intl.DateTimeFormat("en-US",{timeZone:"America/Fortaleza",hour:"2-digit",minute:"2-digit",hour12:false}).formatToParts(new Date());const g=t=>parts.find(p=>p.type===t).value;return (parseInt(g("hour"),10)%24)*60+parseInt(g("minute"),10)}
+function hToday(){return new Intl.DateTimeFormat("en-CA",{timeZone:"America/Fortaleza",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date())}
+function hClosedReason(h,dia){if(!Object.prototype.hasOwnProperty.call(h.fechados,dia))return null;return h.fechados[dia]||"Fechado"}
+function hOpensOn(h,dia){return h.dias.includes(hDow(dia))&&!hClosedReason(h,dia)}
+function hInHours(h){const t=hToday(),m=hNowMin();return hOpensOn(h,t)&&m>=hMin(h.abre)&&m<hMin(h.fecha)}
+function hNext(h){const t=hToday(),m=hNowMin();for(let k=0;k<30;k++){const d=hAdd(t,k);if(!hOpensOn(h,d))continue;if(k===0){if(m<hMin(h.abre))return "Abrimos hoje às "+hTxt(h.abre);continue}
+  return "Abrimos "+(k===1?"amanhã":HDIAS_L[hDow(d)]+" ("+hBr(d)+")")+" às "+hTxt(h.abre)}return "Sem data de reabertura definida"}
+function hDiasTxt(h){const d=[...h.dias].sort((a,b)=>a-b);if(!d.length)return "Sem dias de funcionamento";const run=d.every((x,i)=>i===0||x===d[i-1]+1);
+  if(d.length===7)return "Todos os dias";if(run&&d.length>2)return HDIAS[d[0]][0].toUpperCase()+HDIAS[d[0]].slice(1)+" a "+HDIAS[d.at(-1)];return d.map(x=>HDIAS[x]).join(", ").replace(/^./,c=>c.toUpperCase())}
+function hScheduleTxt(h){return hDiasTxt(h)+", das "+hTxt(h.abre)+" às "+hTxt(h.fecha)}
+// próximo dia de funcionamento normal que estará fechado (até 7 dias), para avisar antes
+function hUpcoming(h){const t=hToday();for(let k=0;k<=7;k++){const d=hAdd(t,k);const r=hClosedReason(h,d);if(r&&h.dias.includes(hDow(d)))return {dia:d,k,motivo:r}}return null}
+
+let funcOpen=false;
+function hPrune(h){const t=hToday(),f={};Object.entries(h.fechados).forEach(([d,m])=>{if(d>=t)f[d]=m});return {abre:h.abre,fecha:h.fecha,dias:h.dias.slice().sort((a,b)=>a-b),fechados:f}}
+async function hSave(h,msg){const v=hPrune(h);if(MENU)MENU.horario=v;renderFunc();try{await be.saveHorario(v);$("hMsg").textContent=msg||"Salvo. O site de pedidos já mostra a mudança."}catch(e){$("hMsg").textContent="Não consegui salvar. Confira a internet e tente de novo."}}
+function renderFunc(){
+  if(!$("funcBox"))return; const h=hCfg(MENU), t=hToday(), open=hInHours(h)&&!(MENU&&MENU.pausado), up=hUpcoming(h), why=hClosedReason(h,t);
+  $("funcStatus").className="fstat "+(open?"on":"off");
+  $("funcStatus").textContent=open?"Site aberto para pedidos":(MENU&&MENU.pausado&&hInHours(h)?"Pedidos pelo site pausados":"Site fechado para pedidos");
+  $("funcSub").textContent=" · "+hScheduleTxt(h)+(open?"":why&&h.dias.includes(hDow(t))?" · hoje fechado: "+why:" · "+hNext(h))+(up&&up.k>0?" · "+(up.k===1?"amanhã":hBr(up.dia))+" fechado ("+up.motivo+")":"");
+  if(funcOpen){
+    if(document.activeElement!==$("hAbre"))$("hAbre").value=h.abre; if(document.activeElement!==$("hFecha"))$("hFecha").value=h.fecha;
+    $("hDias").innerHTML=[1,2,3,4,5,6,0].map(d=>`<button type="button" data-d="${d}" aria-pressed="${h.dias.includes(d)}">${HDIAS[d]}</button>`).join("");
+    if(!$("hDia").value)$("hDia").value=hAdd(t,1);
+    const fs=Object.entries(h.fechados).filter(([d])=>d>=t).sort();
+    $("hList").innerHTML=fs.length?fs.map(([d,m])=>`<li><span><b>${HDIAS_L[hDow(d)]}, ${hBr(d)}</b> · ${esc(m||"Fechado")}</span><button type="button" class="btn" data-reopen="${d}">Reabrir</button></li>`).join(""):`<li class="empty">Nenhum dia fechado marcado.</li>`;
+  }
+}
 
 /* ---------- leitura da mensagem do WhatsApp ---------- */
 function parseOrder(text){
@@ -737,6 +818,7 @@ $("menuSave").addEventListener("click",async()=>{
   if(bad){$("menuMsg").textContent="Confira o preço de "+bad+": use só números, como 12,50.";return}
   const empty=draft.cats.filter(c=>!c.itens.length).map(c=>c.nome);
   const d=JSON.parse(JSON.stringify(draft));
+  if(MENU&&MENU.horario)d.horario=JSON.parse(JSON.stringify(MENU.horario)); else delete d.horario;
   d.cats=d.cats.filter(c=>c.itens.length);
   d.cats.forEach(c=>c.itens.forEach(it=>{if(!it.off)delete it.off;delete it._novo;delete it._raw}));(d.sabores||[]).forEach(s=>{if(!s.off)delete s.off});
   $("menuSave").disabled=true;$("menuSave").textContent="Salvando...";
@@ -797,13 +879,26 @@ async function checkEstoque(){
     if(u){
       $("loginView").hidden=true;$("appView").hidden=false;$("lPass").value="";
       setTab("p"); subscribe(); checkEstoque();
-      if(!menuUnsub) menuUnsub=be.watchMenu(d=>{MENU=d&&Array.isArray(d.cats)?d:DEFAULT_MENU; if(!$("cardapioView").hidden&&!menuDirty){draft=JSON.parse(JSON.stringify(MENU));renderMenuEditor()}});
+      if(!menuUnsub) menuUnsub=be.watchMenu(d=>{MENU=d&&Array.isArray(d.cats)?d:DEFAULT_MENU;renderFunc(); if(!$("cardapioView").hidden&&!menuDirty){draft=JSON.parse(JSON.stringify(MENU));renderMenuEditor()}});
       unlockAudio();
     } else {
       if(unsub){unsub();unsub=null} if(menuUnsub){menuUnsub();menuUnsub=null}
       orders=[]; $("appView").hidden=true;$("loginView").hidden=false;
     }
   });
+})();
+(function(){
+  if(!$("funcBox"))return;
+  $("funcToggle").addEventListener("click",()=>{funcOpen=!funcOpen;$("funcBody").hidden=!funcOpen;$("funcToggle").setAttribute("aria-expanded",funcOpen);renderFunc()});
+  const tchg=()=>{const h=hCfg(MENU),a=$("hAbre").value,f=$("hFecha").value;if(!a||!f)return;if(hMin(a)>=hMin(f)){$("hMsg").textContent="O horário de fechar precisa ser depois do de abrir.";return}h.abre=a;h.fecha=f;hSave(h,"Horário salvo: "+hTxt(a)+" às "+hTxt(f)+".")};
+  $("hAbre").addEventListener("change",tchg);$("hFecha").addEventListener("change",tchg);
+  $("hDias").addEventListener("click",e=>{const b=e.target.closest("[data-d]");if(!b)return;const h=hCfg(MENU),d=+b.dataset.d,i=h.dias.indexOf(d);if(i>=0)h.dias.splice(i,1);else h.dias.push(d);hSave(h)});
+  const close=(dia)=>{const h=hCfg(MENU);h.fechados=Object.assign({},h.fechados,{[dia]:$("hMot").value.trim()||"Folga da equipe"});$("hMot").value="";hSave(h,HDIAS_L[hDow(dia)]+", "+hBr(dia)+" marcado como fechado.")};
+  $("hTomorrow").addEventListener("click",()=>close(hAdd(hToday(),1)));
+  $("hTodayBtn").addEventListener("click",()=>close(hToday()));
+  $("hAdd").addEventListener("click",()=>{const d=$("hDia").value;if(!d){$("hDia").focus();return}if(d<hToday()){$("hMsg").textContent="Escolha hoje ou um dia futuro.";return}close(d)});
+  $("hList").addEventListener("click",e=>{const b=e.target.closest("[data-reopen]");if(!b)return;const h=hCfg(MENU),f=Object.assign({},h.fechados);delete f[b.dataset.reopen];h.fechados=f;hSave(h,hBr(b.dataset.reopen)+" reaberto.")});
+  setInterval(renderFunc,60000);
 })();
 })();
 </script>

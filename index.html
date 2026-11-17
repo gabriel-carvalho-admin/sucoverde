@@ -171,6 +171,10 @@ textarea{min-height:64px;resize:vertical}
 .steps li.now::before{background:var(--leaf)}
 .tfoot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:10px;font-size:.88rem}
 .tfoot button{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:6px 10px;font-weight:800;color:var(--bark)}
+.closed-banner{margin-top:12px;background:#fdecea;border:1px solid #f3c3be;color:#7a2a1a;border-radius:14px;padding:12px 14px;font-size:.95rem;line-height:1.4}
+.closed-banner b{color:#a8321c}
+.closed-banner.info{background:#fdf3e6;border-color:#f1d3a6;color:#6b3a1e}
+.closed-banner.info b{color:#b4541b}
 </style>
 </head>
 <body>
@@ -180,7 +184,7 @@ textarea{min-height:64px;resize:vertical}
     <div>
       <h1>Suco Verde</h1>
       <span id="status" class="status open">Aberto agora</span>
-      <span id="statusNote" class="status-note">Seg a sáb, das 6h às 12h30</span>
+      <span id="statusNote" class="status-note">Seg a sáb, das 6h às 12h</span>
     </div>
   </div>
   <ul class="facts">
@@ -190,6 +194,8 @@ textarea{min-height:64px;resize:vertical}
   </ul>
 </header>
 
+<div class="wrap closed-banner" id="closedBanner" hidden role="status"></div>
+
 <section class="wrap track" id="track" hidden aria-live="polite"></section>
 
 <nav class="cats" aria-label="Categorias"><div class="wrap" id="catNav"></div></nav>
@@ -197,7 +203,7 @@ textarea{min-height:64px;resize:vertical}
 <main class="wrap" id="menu"></main>
 
 <footer class="foot wrap">
-  Suco Verde · Ceasa · WhatsApp (86) 99999-3958<br>Segunda a sábado, das 6h às 12h30
+  Suco Verde · Ceasa · WhatsApp (86) 99999-3958<br><span id="footHours">Seg a sáb, das 6h às 12h</span>
 </footer>
 
 <div class="cartbar" id="cartbar" hidden>
@@ -336,23 +342,32 @@ function priceLine(l){
 let cart = store.get("cart",[]);
 cart = (Array.isArray(cart)?cart:[]).map(priceLine).filter(Boolean);
 
-/* ---------- horário (fuso de Teresina) ---------- */
-function nowTeresina(){
-  const parts = new Intl.DateTimeFormat("en-US",{timeZone:"America/Fortaleza",weekday:"short",hour:"2-digit",minute:"2-digit",hour12:false}).formatToParts(new Date());
-  const g = t => parts.find(p=>p.type===t).value;
-  const wd = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].indexOf(g("weekday"));
-  return {wd, min: (parseInt(g("hour"),10)%24)*60 + parseInt(g("minute"),10)};
-}
-function inHours(){const {wd,min}=nowTeresina();return wd>=1 && wd<=6 && min>=360 && min<750}
+/* ---------- funcionamento: horário, dias da semana e dias fechados ---------- */
+const HDIAS=["dom","seg","ter","qua","qui","sex","sáb"], HDIAS_L=["domingo","segunda","terça","quarta","quinta","sexta","sábado"];
+function hCfg(src){const h=(src&&src.horario)||{};return {abre:h.abre||"06:00",fecha:h.fecha||"12:00",dias:Array.isArray(h.dias)?h.dias:[1,2,3,4,5,6],fechados:(h.fechados&&typeof h.fechados==="object")?h.fechados:{}}}
+const hMin=s=>{const p=String(s||"0:0").split(":").map(Number);return (p[0]||0)*60+(p[1]||0)};
+const hTxt=s=>{const p=String(s).split(":").map(Number);return p[1]?p[0]+"h"+String(p[1]).padStart(2,"0"):p[0]+"h"};
+const hAdd=(s,n)=>{const p=s.split("-").map(Number);return new Date(Date.UTC(p[0],p[1]-1,p[2])+n*864e5).toISOString().slice(0,10)};
+const hDow=s=>{const p=s.split("-").map(Number);return new Date(Date.UTC(p[0],p[1]-1,p[2])).getUTCDay()};
+const hBr=s=>s.slice(8,10)+"/"+s.slice(5,7);
+function hNowMin(){const parts=new Intl.DateTimeFormat("en-US",{timeZone:"America/Fortaleza",hour:"2-digit",minute:"2-digit",hour12:false}).formatToParts(new Date());const g=t=>parts.find(p=>p.type===t).value;return (parseInt(g("hour"),10)%24)*60+parseInt(g("minute"),10)}
+function hToday(){return new Intl.DateTimeFormat("en-CA",{timeZone:"America/Fortaleza",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date())}
+function hClosedReason(h,dia){if(!Object.prototype.hasOwnProperty.call(h.fechados,dia))return null;return h.fechados[dia]||"Fechado"}
+function hOpensOn(h,dia){return h.dias.includes(hDow(dia))&&!hClosedReason(h,dia)}
+function hInHours(h){const t=hToday(),m=hNowMin();return hOpensOn(h,t)&&m>=hMin(h.abre)&&m<hMin(h.fecha)}
+function hNext(h){const t=hToday(),m=hNowMin();for(let k=0;k<30;k++){const d=hAdd(t,k);if(!hOpensOn(h,d))continue;if(k===0){if(m<hMin(h.abre))return "Abrimos hoje às "+hTxt(h.abre);continue}
+  return "Abrimos "+(k===1?"amanhã":HDIAS_L[hDow(d)]+" ("+hBr(d)+")")+" às "+hTxt(h.abre)}return "Sem data de reabertura definida"}
+function hDiasTxt(h){const d=[...h.dias].sort((a,b)=>a-b);if(!d.length)return "Sem dias de funcionamento";const run=d.every((x,i)=>i===0||x===d[i-1]+1);
+  if(d.length===7)return "Todos os dias";if(run&&d.length>2)return HDIAS[d[0]][0].toUpperCase()+HDIAS[d[0]].slice(1)+" a "+HDIAS[d.at(-1)];return d.map(x=>HDIAS[x]).join(", ").replace(/^./,c=>c.toUpperCase())}
+function hScheduleTxt(h){return hDiasTxt(h)+", das "+hTxt(h.abre)+" às "+hTxt(h.fecha)}
+// próximo dia de funcionamento normal que estará fechado (até 7 dias), para avisar antes
+function hUpcoming(h){const t=hToday();for(let k=0;k<=7;k++){const d=hAdd(t,k);const r=hClosedReason(h,d);if(r&&h.dias.includes(hDow(d)))return {dia:d,k,motivo:r}}return null}
+
+function inHours(){return hInHours(hCfg(DATA))}
 function isOpen(){return inHours() && !DATA.pausado}
-function nextOpenText(){
-  const {wd,min}=nowTeresina();
-  if(wd>=1 && wd<=6 && min<360) return "Abrimos hoje às 6h";
-  if(wd===6 || wd===0) return "Abrimos segunda às 6h";
-  return "Abrimos amanhã às 6h";
-}
+function nextOpenText(){return hNext(hCfg(DATA))}
 function renderStatus(){
-  const s=$("status");
+  const s=$("status"), h=hCfg(DATA), today=hToday(), why=hClosedReason(h,today);
   if(DATA.pausado && inHours()){
     s.className="status closed"; s.textContent="Pedidos online pausados";
     $("statusNote").textContent="Fale com a gente pelo WhatsApp (86) 99999-3958";
@@ -360,10 +375,22 @@ function renderStatus(){
     const open=isOpen();
     s.className = "status " + (open?"open":"closed");
     s.textContent = open ? "Aberto agora" : "Fechado agora";
-    $("statusNote").textContent = open ? "Seg a sáb, das 6h às 12h30" : nextOpenText() + " · seg a sáb, 6h às 12h30";
+    $("statusNote").textContent = open ? hScheduleTxt(h) : (why&&h.dias.includes(hDow(today))?"Hoje não abrimos ("+why+"). ":"")+nextOpenText()+" · "+hScheduleTxt(h);
   }
+  // aviso em destaque na página
+  const bn=$("closedBanner"), up=hUpcoming(h), open=isOpen();
+  if(!open){
+    bn.hidden=false; bn.className="wrap closed-banner";
+    bn.innerHTML=(DATA.pausado&&inHours())?"<b>Os pedidos pelo site estão pausados agora.</b> Chame a gente no WhatsApp: (86) 99999-3958."
+      :"<b>Estamos fechados agora.</b> "+(why&&h.dias.includes(hDow(today))?"Hoje não abrimos: "+esc(why)+". ":"")+esc(nextOpenText())+". Você pode olhar o cardápio e montar seu pedido.";
+  } else if(up&&up.k>0){
+    bn.hidden=false; bn.className="wrap closed-banner info";
+    bn.innerHTML="<b>Aviso:</b> "+(up.k===1?"amanhã":HDIAS_L[hDow(up.dia)]+" ("+hBr(up.dia)+")")+" não vamos abrir ("+esc(up.motivo)+").";
+  } else bn.hidden=true;
+  const ft=$("footHours"); if(ft) ft.textContent=hScheduleTxt(h);
   updateSend();
 }
+setInterval(()=>renderStatus(),60000);
 
 /* ---------- cardápio ---------- */
 function qtyInCart(cid,i){return cart.filter(l=>l.cid===cid && l.i===i).reduce((a,l)=>a+l.q,0)}
