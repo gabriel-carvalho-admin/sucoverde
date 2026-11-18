@@ -639,7 +639,35 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
 
 <script type="application/json" id="menuData">{"pausado": false, "recheios": ["Frango", "Carne de sol", "Queijo", "Presunto", "Ovo"], "sabores": [{"n": "Acerola"}, {"n": "Cajá"}, {"n": "Goiaba"}, {"n": "Laranja"}, {"n": "Maracujá"}], "cats": [{"id": "lanches", "nome": "Lanches", "foto": "cuscuz", "itens": [{"n": "Fatia de pizza", "p": 8, "o": ["extras"]}, {"n": "Salgados", "p": 6, "ph": "Qual salgado?"}, {"n": "Mini-salgados", "p": 1, "d": "Preço por unidade", "ph": "Quais sabores?"}, {"n": "Cuscuz simples", "p": 3, "o": ["extras"]}, {"n": "Cuscuz 2 itens", "p": 10, "d": "Escolha 2 recheios", "o": ["pick2", "extras"]}, {"n": "Cuscuz completo", "p": 12, "o": ["extras"]}, {"n": "Misto simples", "p": 7, "o": ["extras"]}, {"n": "Pão 2 itens", "p": 9, "d": "Escolha 2 recheios", "o": ["pick2", "extras"]}, {"n": "Pão completo", "p": 12, "o": ["extras"]}, {"n": "Beiju simples", "p": 3, "o": ["extras"]}, {"n": "Beiju 2 itens", "p": 10, "d": "Escolha 2 recheios", "o": ["pick2", "extras"]}, {"n": "Beiju completo", "p": 13, "o": ["extras"]}, {"n": "Crepioca", "p": 13, "o": ["extras"]}]}, {"id": "carne-de-sol", "nome": "Lanches com carne de sol", "foto": "lanche", "itens": [{"n": "Beiju cremoso", "p": 15, "d": "Carne de sol e requeijão", "o": ["extras"]}, {"n": "Beiju de sol", "p": 15, "d": "Carne de sol e queijo", "o": ["extras"]}, {"n": "Crepioca de sol", "p": 15, "d": "Carne de sol, queijo e ovo", "o": ["extras"]}, {"n": "Pão de sol", "p": 15, "d": "Carne de sol, queijo e presunto", "o": ["extras"]}]}, {"id": "complementos", "nome": "Complementos", "sub": "Também dá para incluir ao montar o lanche", "itens": [{"n": "Frango 40g", "p": 4}, {"n": "Carne de sol 40g", "p": 6}, {"n": "Queijo 40g", "p": 5}, {"n": "Presunto 40g", "p": 3}, {"n": "Ovo", "p": 2}]}, {"id": "sucos", "nome": "Sucos", "foto": "suco", "sub": "Acerola, cajá, goiaba, laranja ou maracujá", "itens": [{"n": "Suco 180 ml", "p": 4, "o": ["sabor"]}, {"n": "Suco 250 ml", "p": 5, "o": ["sabor"]}, {"n": "Suco 500 ml", "p": 11, "o": ["sabor"]}, {"n": "Mega suco 700 ml", "p": 13, "o": ["sabor"]}, {"n": "Suco detox 180 ml", "p": 5, "d": "Suco verde"}, {"n": "Matruz 150 ml", "p": 5, "d": "Suco verde"}]}, {"id": "bebidas", "nome": "Bebidas", "itens": [{"n": "Água mineral", "p": 4}, {"n": "Água mineral com gás", "p": 4}, {"n": "Leite 150 ml", "p": 4}, {"n": "Café 120 ml", "p": 2}, {"n": "Refrigerante 200 ml", "p": 5, "ph": "Qual refrigerante?"}, {"n": "Refrigerante lata", "p": 7, "ph": "Qual refrigerante?"}, {"n": "Refrigerante 1L", "p": 9, "ph": "Qual refrigerante?"}, {"n": "Refrigerante 2L", "p": 15, "ph": "Qual refrigerante?"}]}, {"id": "encomenda", "nome": "Cento de salgado", "foto": "salgado", "sub": "Sob encomenda", "itens": [{"n": "Cento de salgado", "p": 90, "d": "100 salgadinhos", "tag": "Encomenda", "ph": "Sabores e dia/horário que deseja receber"}]}]}</script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
-<script>(function(){
+<script>/* ---------- acesso: administrador x equipe ---------- */
+window.__svRole=async function(){
+  if(window.__MOCK_BACKEND) return window.__MOCK_ROLE||"admin";
+  const base="https://www.gstatic.com/firebasejs/12.19.0/";
+  const [A,F,U]=await Promise.all([import(base+"firebase-app.js"),import(base+"firebase-firestore.js"),import(base+"firebase-auth.js")]);
+  const app=A.getApps()[0]; if(!app) return null; const auth=U.getAuth(app); await auth.authStateReady();
+  const u=auth.currentUser; if(!u) return null;
+  try{const s=await F.getDoc(F.doc(F.getFirestore(app),"config","acesso"));const a=s.exists()&&Array.isArray(s.data().admins)?s.data().admins:[];return a.includes(u.uid)?"admin":"equipe"}catch(e){return "equipe"}
+};
+window.__svSignOut=async function(){
+  if(window.__MOCK_BACKEND){location.reload();return}
+  const base="https://www.gstatic.com/firebasejs/12.19.0/";
+  const [A,U]=await Promise.all([import(base+"firebase-app.js"),import(base+"firebase-auth.js")]);
+  await U.signOut(U.getAuth(A.getApps()[0])); location.reload();
+};
+window.__svDeny=function(email){
+  if(document.getElementById("svDeny"))return;
+  const d=document.createElement("div");d.id="svDeny";
+  d.setAttribute("style","position:fixed;inset:0;z-index:999;background:#fbf4e6;display:flex;align-items:center;justify-content:center;padding:24px;font-family:inherit");
+  d.innerHTML='<div style="max-width:380px;width:100%;background:#fff;border:1px solid #ead9bd;border-radius:18px;padding:22px;text-align:center"><h2 style="margin:0 0 8px;color:#6b3a1e">Área do administrador</h2><p style="margin:0 0 16px;color:#7a6a58">Sua conta é da equipe e tem acesso só aos pedidos'+(email?' <br><small>('+String(email).replace(/[<>&"]/g,"")+')</small>':'')+'.</p><a href="../anotar/" style="display:block;background:#1f6b2a;color:#fff;border-radius:12px;padding:14px;font-weight:800;text-decoration:none;margin-bottom:8px">Anotar pedido</a><a href="../painel/" style="display:block;border:1px solid #ead9bd;color:#6b3a1e;border-radius:12px;padding:13px;font-weight:800;text-decoration:none;margin-bottom:8px">Painel de pedidos</a><button type="button" id="svOut" style="width:100%;border:1px solid #ead9bd;background:#fff;color:#b3261e;border-radius:12px;padding:12px;font:inherit;font-weight:800;cursor:pointer">Sair e entrar com outra conta</button></div>';
+  document.body.appendChild(d); document.getElementById("svOut").onclick=()=>window.__svSignOut();
+};
+// páginas só do administrador: a tela abre só depois de confirmar o acesso
+window.__svAdminOnly=function(be){
+  const on=be.onAuth.bind(be);
+  be.onAuth=cb=>on(u=>{ if(!u){cb(u);return} window.__svRole().then(r=>{ if(r==="admin") cb(u); else { window.__svDeny(u.email); } }); });
+  return be;
+};
+(function(){
 "use strict";
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -1410,7 +1438,7 @@ $("loginForm").addEventListener("submit",async e=>{
 $("logout").addEventListener("click",()=>be&&be.signOut());
 
 (async function(){
-  try{be=await backend()}catch(e){$("loginView").hidden=false;$("lErr").textContent="Não consegui carregar o sistema. Recarregue a página.";return}
+  try{be=window.__svAdminOnly(await backend())}catch(e){$("loginView").hidden=false;$("lErr").textContent="Não consegui carregar o sistema. Recarregue a página.";return}
   be.onAuth(async u=>{
     if(!u){$("appView").hidden=true;$("loginView").hidden=false;return}
     $("loginView").hidden=true;$("appView").hidden=false;$("lPass").value="";

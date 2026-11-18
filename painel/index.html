@@ -194,6 +194,7 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
 .fclosed li.empty{color:var(--muted);border:0}
 .fnote{margin:0;font-size:.82rem;color:var(--muted)}
 .order .disc{font-size:.82rem;color:#b4321c;font-weight:700;margin-top:6px}
+body.staff .adm,body.staff #funcBody{display:none !important}
 @media print{
   @page{margin:3mm}
   body{background:#fff}
@@ -234,19 +235,19 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
     <label for="day" class="sr">Dia</label>
     <input type="date" id="day">
     <button type="button" class="btn" id="today">Hoje</button>
-    <a class="btn" href="../compras/" style="text-decoration:none">Compras</a>
-    <a class="btn" href="../caixa/" style="text-decoration:none">Caixa</a>
+    <a class="btn adm" href="../compras/" style="text-decoration:none">Compras</a>
+    <a class="btn adm" href="../caixa/" style="text-decoration:none">Caixa</a>
     <a class="btn solid" href="../anotar/" style="text-decoration:none">Anotar pedido</a>
-    <a class="btn" href="../vendas/" style="text-decoration:none">Venda avulsa</a>
-    <a class="btn" href="../estoque/" style="text-decoration:none">Estoque</a>
-    <a class="btn" href="../financeiro/" style="text-decoration:none">Financeiro</a>
+    <a class="btn adm" href="../vendas/" style="text-decoration:none">Venda avulsa</a>
+    <a class="btn adm" href="../estoque/" style="text-decoration:none">Estoque</a>
+    <a class="btn adm" href="../financeiro/" style="text-decoration:none">Financeiro</a>
     <button type="button" class="btn" id="logout">Sair</button>
   </div>
 </header>
 
 <nav class="tabs" role="tablist" aria-label="Seções">
   <button type="button" role="tab" id="tabPedidos" aria-selected="true">Pedidos</button>
-  <button type="button" role="tab" id="tabCardapio" aria-selected="false">Cardápio</button>
+  <button type="button" role="tab" id="tabCardapio" aria-selected="false" class="adm">Cardápio</button>
 </nav>
 
 <p class="note" id="note" hidden></p>
@@ -257,7 +258,7 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
 <section class="func wrap" id="funcBox" aria-label="Funcionamento do site">
   <div class="func-head">
     <div><span id="funcStatus" class="fstat">—</span><small id="funcSub"></small></div>
-    <button type="button" class="btn" id="funcToggle" aria-expanded="false">Horário e dias fechados</button>
+    <button type="button" class="btn adm" id="funcToggle" aria-expanded="false">Horário e dias fechados</button>
   </div>
   <div class="func-body" id="funcBody" hidden>
     <div class="func-row"><span class="flbl">Horário</span><input type="time" id="hAbre" aria-label="Abre às"><span>às</span><input type="time" id="hFecha" aria-label="Fecha às"></div>
@@ -273,9 +274,9 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
   </div>
 </section>
 <section class="tiles" aria-label="Resumo do dia">
-  <div class="tile"><span>Faturamento</span><b id="tRev">R$ 0,00</b></div>
+  <div class="tile adm"><span>Faturamento</span><b id="tRev">R$ 0,00</b></div>
   <div class="tile"><span>Pedidos</span><b id="tCount">0</b></div>
-  <div class="tile"><span>Ticket médio</span><b id="tAvg">R$ 0,00</b></div>
+  <div class="tile adm"><span>Ticket médio</span><b id="tAvg">R$ 0,00</b></div>
   <div class="tile hot"><span>Em aberto</span><b id="tOpen">0</b></div>
 </section>
 
@@ -288,8 +289,8 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
 <div class="chips" id="chips" role="group" aria-label="Filtrar pedidos"></div>
 <div class="orders" id="orders"></div>
 
-<h2>Vendas do dia</h2>
-<div class="summary">
+<h2 class="adm">Vendas do dia</h2>
+<div class="summary adm">
   <div class="box"><h3>Por forma de pagamento</h3><div id="byPay"></div></div>
   <div class="box"><h3>Por canal</h3><div id="byOrig"></div></div>
   <div class="box"><h3>Mais vendidos</h3><div id="topItems"></div></div>
@@ -349,7 +350,35 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
 <div id="printArea" aria-hidden="true"></div>
 
 <script type="application/json" id="menuData">{"pausado": false, "recheios": ["Frango", "Carne de sol", "Queijo", "Presunto", "Ovo"], "sabores": [{"n": "Acerola"}, {"n": "Cajá"}, {"n": "Goiaba"}, {"n": "Laranja"}, {"n": "Maracujá"}], "cats": [{"id": "lanches", "nome": "Lanches", "foto": "cuscuz", "itens": [{"n": "Fatia de pizza", "p": 8, "o": ["extras"]}, {"n": "Salgados", "p": 6, "ph": "Qual salgado?"}, {"n": "Mini-salgados", "p": 1, "d": "Preço por unidade", "ph": "Quais sabores?"}, {"n": "Cuscuz simples", "p": 3, "o": ["extras"]}, {"n": "Cuscuz 2 itens", "p": 10, "d": "Escolha 2 recheios", "o": ["pick2", "extras"]}, {"n": "Cuscuz completo", "p": 12, "o": ["extras"]}, {"n": "Misto simples", "p": 7, "o": ["extras"]}, {"n": "Pão 2 itens", "p": 9, "d": "Escolha 2 recheios", "o": ["pick2", "extras"]}, {"n": "Pão completo", "p": 12, "o": ["extras"]}, {"n": "Beiju simples", "p": 3, "o": ["extras"]}, {"n": "Beiju 2 itens", "p": 10, "d": "Escolha 2 recheios", "o": ["pick2", "extras"]}, {"n": "Beiju completo", "p": 13, "o": ["extras"]}, {"n": "Crepioca", "p": 13, "o": ["extras"]}]}, {"id": "carne-de-sol", "nome": "Lanches com carne de sol", "foto": "lanche", "itens": [{"n": "Beiju cremoso", "p": 15, "d": "Carne de sol e requeijão", "o": ["extras"]}, {"n": "Beiju de sol", "p": 15, "d": "Carne de sol e queijo", "o": ["extras"]}, {"n": "Crepioca de sol", "p": 15, "d": "Carne de sol, queijo e ovo", "o": ["extras"]}, {"n": "Pão de sol", "p": 15, "d": "Carne de sol, queijo e presunto", "o": ["extras"]}]}, {"id": "complementos", "nome": "Complementos", "sub": "Também dá para incluir ao montar o lanche", "itens": [{"n": "Frango 40g", "p": 4}, {"n": "Carne de sol 40g", "p": 6}, {"n": "Queijo 40g", "p": 5}, {"n": "Presunto 40g", "p": 3}, {"n": "Ovo", "p": 2}]}, {"id": "sucos", "nome": "Sucos", "foto": "suco", "sub": "Acerola, cajá, goiaba, laranja ou maracujá", "itens": [{"n": "Suco 180 ml", "p": 4, "o": ["sabor"]}, {"n": "Suco 250 ml", "p": 5, "o": ["sabor"]}, {"n": "Suco 500 ml", "p": 11, "o": ["sabor"]}, {"n": "Mega suco 700 ml", "p": 13, "o": ["sabor"]}, {"n": "Suco detox 180 ml", "p": 5, "d": "Suco verde"}, {"n": "Matruz 150 ml", "p": 5, "d": "Suco verde"}]}, {"id": "bebidas", "nome": "Bebidas", "itens": [{"n": "Água mineral", "p": 4}, {"n": "Água mineral com gás", "p": 4}, {"n": "Leite 150 ml", "p": 4}, {"n": "Café 120 ml", "p": 2}, {"n": "Refrigerante 200 ml", "p": 5, "ph": "Qual refrigerante?"}, {"n": "Refrigerante lata", "p": 7, "ph": "Qual refrigerante?"}, {"n": "Refrigerante 1L", "p": 9, "ph": "Qual refrigerante?"}, {"n": "Refrigerante 2L", "p": 15, "ph": "Qual refrigerante?"}]}, {"id": "encomenda", "nome": "Cento de salgado", "foto": "salgado", "sub": "Sob encomenda", "itens": [{"n": "Cento de salgado", "p": 90, "d": "100 salgadinhos", "tag": "Encomenda", "ph": "Sabores e dia/horário que deseja receber"}]}]}</script>
-<script>(function(){
+<script>/* ---------- acesso: administrador x equipe ---------- */
+window.__svRole=async function(){
+  if(window.__MOCK_BACKEND) return window.__MOCK_ROLE||"admin";
+  const base="https://www.gstatic.com/firebasejs/12.19.0/";
+  const [A,F,U]=await Promise.all([import(base+"firebase-app.js"),import(base+"firebase-firestore.js"),import(base+"firebase-auth.js")]);
+  const app=A.getApps()[0]; if(!app) return null; const auth=U.getAuth(app); await auth.authStateReady();
+  const u=auth.currentUser; if(!u) return null;
+  try{const s=await F.getDoc(F.doc(F.getFirestore(app),"config","acesso"));const a=s.exists()&&Array.isArray(s.data().admins)?s.data().admins:[];return a.includes(u.uid)?"admin":"equipe"}catch(e){return "equipe"}
+};
+window.__svSignOut=async function(){
+  if(window.__MOCK_BACKEND){location.reload();return}
+  const base="https://www.gstatic.com/firebasejs/12.19.0/";
+  const [A,U]=await Promise.all([import(base+"firebase-app.js"),import(base+"firebase-auth.js")]);
+  await U.signOut(U.getAuth(A.getApps()[0])); location.reload();
+};
+window.__svDeny=function(email){
+  if(document.getElementById("svDeny"))return;
+  const d=document.createElement("div");d.id="svDeny";
+  d.setAttribute("style","position:fixed;inset:0;z-index:999;background:#fbf4e6;display:flex;align-items:center;justify-content:center;padding:24px;font-family:inherit");
+  d.innerHTML='<div style="max-width:380px;width:100%;background:#fff;border:1px solid #ead9bd;border-radius:18px;padding:22px;text-align:center"><h2 style="margin:0 0 8px;color:#6b3a1e">Área do administrador</h2><p style="margin:0 0 16px;color:#7a6a58">Sua conta é da equipe e tem acesso só aos pedidos'+(email?' <br><small>('+String(email).replace(/[<>&"]/g,"")+')</small>':'')+'.</p><a href="../anotar/" style="display:block;background:#1f6b2a;color:#fff;border-radius:12px;padding:14px;font-weight:800;text-decoration:none;margin-bottom:8px">Anotar pedido</a><a href="../painel/" style="display:block;border:1px solid #ead9bd;color:#6b3a1e;border-radius:12px;padding:13px;font-weight:800;text-decoration:none;margin-bottom:8px">Painel de pedidos</a><button type="button" id="svOut" style="width:100%;border:1px solid #ead9bd;background:#fff;color:#b3261e;border-radius:12px;padding:12px;font:inherit;font-weight:800;cursor:pointer">Sair e entrar com outra conta</button></div>';
+  document.body.appendChild(d); document.getElementById("svOut").onclick=()=>window.__svSignOut();
+};
+// páginas só do administrador: a tela abre só depois de confirmar o acesso
+window.__svAdminOnly=function(be){
+  const on=be.onAuth.bind(be);
+  be.onAuth=cb=>on(u=>{ if(!u){cb(u);return} window.__svRole().then(r=>{ if(r==="admin") cb(u); else { window.__svDeny(u.email); } }); });
+  return be;
+};
+(function(){
 "use strict";
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -582,7 +611,7 @@ function card(o,n){
   const items=(o.itens||[]).map(i=>`<li>${+i.q}× ${esc(i.n)}${(i.det&&i.det.length)||(i.ex&&i.ex.length)||i.obs?`<small>${[...(i.det||[]),...(i.ex||[]).map(x=>"+ "+x),i.obs?"Obs.: "+i.obs:""].filter(Boolean).map(esc).join(" · ")}</small>`:""}</li>`).join("");
   const nx=nextFor(o), id=esc(o.id);
   return `<article class="order st-${esc(o.status)}">
-    <div class="top"><span class="num">${n?"#"+n:"Prévia"}${n?`<small class="code">${esc(codeOf(o.id))}</small>`:""}</span><span class="meta">${tzTime(o.criado)} · ${ORIG[o.origem]||""}</span><span class="pill">${esc(stLabel(o))}</span></div>
+    <div class="top"><span class="num">${n?"#"+n:"Prévia"}${n?`<small class="code">${esc(codeOf(o.id))}</small>`:""}</span><span class="meta">${tzTime(o.criado)} · ${ORIG[o.origem]||""}${o.origem==="equipe"&&o.por?" · "+esc(String(o.por).split("@")[0]):""}</span><span class="pill">${esc(stLabel(o))}</span></div>
     ${o.cliente||o.telefone?`<div class="who">${esc(o.cliente||"")}${o.telefone?` <span class="tel">${esc(fmtTel(o.telefone))}</span>`:""}</div>`:""}
     <div class="where">${esc(where)}</div>
     <ul>${items}</ul>
@@ -882,7 +911,8 @@ async function checkEstoque(){
   be.onAuth(u=>{
     if(u){
       $("loginView").hidden=true;$("appView").hidden=false;$("lPass").value="";
-      setTab("p"); subscribe(); checkEstoque();
+      setTab("p"); subscribe();
+      window.__svRole().then(r=>{const staff=r!=="admin";document.body.classList.toggle("staff",staff);if(staff){$("estNote").hidden=true;if(!$("cardapioView").hidden)setTab("p")}else checkEstoque();});
       if(!menuUnsub) menuUnsub=be.watchMenu(d=>{MENU=d&&Array.isArray(d.cats)?d:DEFAULT_MENU;renderFunc(); if(!$("cardapioView").hidden&&!menuDirty){draft=JSON.parse(JSON.stringify(MENU));renderMenuEditor()}});
       unlockAudio();
     } else {
