@@ -175,6 +175,38 @@ textarea{min-height:64px;resize:vertical}
 .closed-banner b{color:#a8321c}
 .closed-banner.info{background:#fdf3e6;border-color:#f1d3a6;color:#6b3a1e}
 .closed-banner.info b{color:#b4541b}
+
+/* ---------- Cardápio em cards por grupo ---------- */
+section.cat{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:12px;margin-top:14px;scroll-margin-top:66px;box-shadow:0 2px 10px rgba(107,58,30,.05)}
+section.cat .cat-photo{height:88px;margin:-12px -12px 10px;width:calc(100% + 24px);max-width:none;border-radius:20px 20px 0 0}
+.cat-head{margin-bottom:10px}
+.cat-head h2{font-size:1.25rem}
+.items{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.cell{position:relative}
+.item{display:flex;flex-direction:column;align-items:stretch;gap:6px;height:100%;min-height:100px;padding:11px 11px 12px;background:var(--paper);border-radius:16px;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.item:active{transform:scale(.98)}
+.item>span:first-child{flex:1}
+.item .nm{font-size:.95rem;line-height:1.2}
+.item .ds{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:.78rem}
+.item .incart{display:inline-block;margin:4px 0 0}
+.item .tag{margin:4px 4px 0 0}
+.item .pr{line-height:36px;padding-right:44px}
+.cell .add,.qstep{position:absolute;right:8px;bottom:8px}
+.cell .add{width:38px;height:38px;border-radius:50%;border:0;background:var(--leaf);color:#fff;display:grid;place-items:center;font-size:1.4rem;font-weight:800;line-height:1;touch-action:manipulation;cursor:pointer}
+.qstep{display:flex;align-items:center;background:var(--leaf);border-radius:999px;color:#fff;height:38px}
+.qstep button{width:34px;height:38px;border:0;background:transparent;color:#fff;font-size:1.35rem;font-weight:800;touch-action:manipulation;cursor:pointer}
+.qstep b{min-width:16px;text-align:center;font-variant-numeric:tabular-nums}
+.cell:has(.qstep) .item .pr{visibility:hidden}
+.cell:has(.qstep) .item{border-color:var(--leaf);box-shadow:inset 0 0 0 1px var(--leaf)}
+.cell:has(.qstep) .item .pr{visibility:visible;line-height:1.2;padding:0}
+.cell:has(.qstep) .item{padding-bottom:52px}
+.item.off+*{display:none}
+@media (min-width:760px){
+  .wrap{max-width:980px}
+  .items{grid-template-columns:repeat(3,minmax(0,1fr))}
+  section.cat .cat-photo{height:120px}
+}
+@media (min-width:1100px){.items{grid-template-columns:repeat(4,minmax(0,1fr))}}
 </style>
 </head>
 <body>
@@ -394,6 +426,13 @@ setInterval(()=>renderStatus(),60000);
 
 /* ---------- cardápio ---------- */
 function qtyInCart(cid,i){return cart.filter(l=>l.cid===cid && l.i===i).reduce((a,l)=>a+l.q,0)}
+const isSimple=it=>!(it.o||[]).some(x=>x==="pick2"||x==="sabor");
+const plainLine=(cid,i)=>cart.find(l=>l.cid===cid&&l.i===i&&!l.det&&!l.obs&&!(l.ex&&l.ex.length));
+function quickCtl(cid,i,it){
+  const pl=isSimple(it)&&plainLine(cid,i);
+  if(pl) return `<div class="qstep" role="group" aria-label="Quantidade de ${esc(it.n)}"><button type="button" class="qminus" data-cid="${cid}" data-i="${i}" aria-label="Tirar um">−</button><b>${pl.q}</b><button type="button" class="qplus" data-cid="${cid}" data-i="${i}" aria-label="Pôr mais um">+</button></div>`;
+  return `<button type="button" class="add qplus" data-cid="${cid}" data-i="${i}" aria-label="Adicionar ${esc(it.n)}">+</button>`;
+}
 function renderMenu(){
   $("catNav").innerHTML = MENU.map(c=>`<a href="#${c.id}" data-cat="${c.id}">${esc(c.nome)}</a>`).join("");
   $("menu").innerHTML = MENU.map(c=>`
@@ -401,16 +440,24 @@ function renderMenu(){
      ${c.foto&&IMG[c.foto]?`<img class="cat-photo" src="${IMG[c.foto]}" alt="" loading="lazy">`:""}
      <div class="cat-head"><div><h2 id="h-${c.id}">${esc(c.nome)}</h2>${c.sub?`<p>${esc(c.sub)}</p>`:""}</div></div>
      <div class="items">
-      ${c.itens.map((it,i)=>{const q=qtyInCart(c.id,i);return `
+      ${c.itens.map((it,i)=>{const q=qtyInCart(c.id,i);return `<div class="cell">
        <button type="button" class="item${it.off?" off":""}" data-cid="${c.id}" data-i="${i}" ${it.off?'aria-disabled="true"':""}>
-         <span><span class="nm">${esc(it.n)}${it.tag?`<span class="tag">${esc(it.tag)}</span>`:""}${it.off?`<span class="tag soldout">Esgotado</span>`:""}${q?`<span class="incart">${q} no pedido</span>`:""}</span>${it.d?`<span class="ds">${esc(it.d)}</span>`:""}</span>
+         <span><span class="nm">${esc(it.n)}${it.tag?`<span class="tag">${esc(it.tag)}</span>`:""}${it.off?`<span class="tag soldout">Esgotado</span>`:""}${q&&!isSimple(it)?`<span class="incart">${q} no pedido</span>`:""}</span>${it.d?`<span class="ds">${esc(it.d)}</span>`:""}</span>
          <span class="pr">${brl(it.p)}</span>
-         <span class="add" aria-hidden="true">+</span>
-       </button>`}).join("")}
+       </button>${it.off?"":quickCtl(c.id,i,it)}</div>`}).join("")}
      </div>
    </section>`).join("");
 }
 $("menu").addEventListener("click",e=>{
+  const qb=e.target.closest(".qplus,.qminus");
+  if(qb){
+    const cid=qb.dataset.cid,i=+qb.dataset.i,it=MENU.find(c=>c.id===cid).itens[i];
+    if(!isSimple(it)){openItem(cid,i);return}
+    let l=plainLine(cid,i);
+    if(qb.classList.contains("qplus")){ if(l) l.q++; else cart.push({cid,i,n:it.n,u:+it.p,q:1,det:"",ex:[],obs:""}); if(navigator.vibrate)try{navigator.vibrate(15)}catch(_){} }
+    else if(l){ l.q--; if(l.q<=0) cart.splice(cart.indexOf(l),1); }
+    save(); renderMenu(); trackCat(); return;
+  }
   const b=e.target.closest(".item"); if(!b||b.classList.contains("off")) return;
   openItem(b.dataset.cid, +b.dataset.i);
 });
