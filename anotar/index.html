@@ -392,6 +392,9 @@ body.cart-open .an-bar{display:none}
 @media (min-width:1100px){.an-items{grid-template-columns:repeat(4,minmax(0,1fr))}}
 .linkbtn{border:1px solid var(--line);background:#fff;border-radius:10px;padding:9px 12px;font:inherit;font-weight:800;font-size:.85rem;color:var(--danger);cursor:pointer}
 body.cart-open .toast{top:16px;bottom:auto !important}
+
+.an-wa{margin:6px 0 0;font-size:.82rem;font-weight:700;color:var(--leaf)}
+.an-wa.warn{color:#9a4d07}
 </style>
 </head>
 <body>
@@ -399,7 +402,7 @@ body.cart-open .toast{top:16px;bottom:auto !important}
   <div class="wrap ctop-in">
     <img data-img="logo" alt="Suco Verde" class="clogo">
     <div class="ctitle"><h1>Anotar pedido</h1><p>Suco Verde · pedido da equipe</p></div>
-    <nav class="cnav" aria-label="Outras páginas"><a href="../painel/">Painel</a><a href="../caixa/">Caixa</a></nav>
+    <nav class="cnav" aria-label="Outras páginas"><a href="../painel/">Painel</a><a href="../caixa/" id="lnkCaixa" hidden>Caixa</a></nav>
   </div>
 </header>
 
@@ -438,6 +441,9 @@ body.cart-open .toast{top:16px;bottom:auto !important}
       <label class="lbl" for="cName">Cliente</label>
       <input type="text" id="cName" list="clientList" autocomplete="off" placeholder="Nome do cliente (opcional)">
       <datalist id="clientList"></datalist>
+      <label class="lbl" for="cPhone">Celular do vendedor <small>(WhatsApp)</small></label>
+      <input type="tel" id="cPhone" inputmode="tel" autocomplete="off" placeholder="(86) 9 9999-9999">
+      <p class="an-wa" id="waHint" hidden></p>
       <p class="an-client" id="clientInfo" hidden></p>
 
       <p class="lbl">Desconto</p>
@@ -469,8 +475,7 @@ body.cart-open .toast{top:16px;bottom:auto !important}
       </div>
 
       <details class="an-more">
-        <summary>WhatsApp e observação</summary>
-        <input type="tel" id="cPhone" inputmode="tel" placeholder="WhatsApp do cliente (opcional)">
+        <summary>Observação do pedido</summary>
         <input type="text" id="cObs" maxlength="300" placeholder="Observação do pedido">
       </details>
 
@@ -578,6 +583,7 @@ let be=null;
 /* ---------- estado ---------- */
 let CL={}, cat="", q="", lines=[], pct=0, pctTouched=false, mode="balcao", pay="", sending=false, recent=[];
 try{const s=JSON.parse(localStorage.getItem("sv_anotar")||"null");if(s&&Array.isArray(s.lines)){lines=s.lines;pct=+s.pct||0;mode=s.mode||"balcao";pay=s.pay||""}}catch(e){}
+const fmtPhone=t=>{t=String(t||"").replace(/\D/g,"");return t.length===11?`(${t.slice(0,2)}) ${t[2]} ${t.slice(3,7)}-${t.slice(7)}`:t.length===10?`(${t.slice(0,2)}) ${t.slice(2,6)}-${t.slice(6)}`:t};
 const persist=()=>{try{localStorage.setItem("sv_anotar",JSON.stringify({lines,pct,mode,pay}))}catch(e){}};
 const cats=()=>(DATA.cats||[]).filter(c=>c.id!=="complementos"&&(c.itens||[]).length);
 const comp=()=>(DATA.cats||[]).find(c=>c.id==="complementos");
@@ -668,15 +674,24 @@ $("payChips").addEventListener("click",e=>{const b=e.target.closest("[data-v]");
 function clientOf(){const n=$("cName").value.trim();return n?CL[keyOf(n)]||null:null}
 function clientUi(){
   const n=$("cName").value.trim(), c=clientOf();
-  $("clientInfo").hidden=!c; if(c)$("clientInfo").innerHTML=`Cliente cadastrado${c.desconto?`: desconto de <b>${String(c.desconto).replace(".",",")}%</b>`:" sem desconto"}${c.telefone?" · "+esc(c.telefone):""}`;
+  $("clientInfo").hidden=!c; if(c)$("clientInfo").innerHTML=`Cliente cadastrado${c.desconto?`: desconto de <b>${String(c.desconto).replace(".",",")}%</b>`:" sem desconto"}${c.telefone?" · 📱 "+esc(fmtPhone(c.telefone)):" · sem celular salvo"}`;
   const saved=c?(+c.desconto||0):0, show=!!n&&pct!==saved;
   $("rememberWrap").hidden=!show; if(show)$("rememberTxt").textContent=pct?`Lembrar ${String(pct).replace(".",",")}% de desconto para ${n}`:`Tirar o desconto de ${n} nos próximos pedidos`;
 }
-function renderClientList(){$("clientList").innerHTML=Object.values(CL).sort((a,b)=>(b.vezes||0)-(a.vezes||0)).map(c=>`<option value="${esc(c.nome)}">${c.desconto?esc(c.desconto+"% de desconto"):""}</option>`).join("")}
-$("cName").addEventListener("input",()=>{const c=clientOf();if(c&&!pctTouched){pct=+c.desconto||0;if(c.telefone&&!$("cPhone").value)$("cPhone").value=c.telefone}else if(!c&&!pctTouched)pct=0;persist();renderTotals()});
+function renderClientList(){$("clientList").innerHTML=Object.values(CL).sort((a,b)=>(b.vezes||0)-(a.vezes||0)).map(c=>`<option value="${esc(c.nome)}">${esc([c.desconto?c.desconto+"% de desconto":"",c.telefone?fmtPhone(c.telefone):""].filter(Boolean).join(" · "))}</option>`).join("")}
+let phoneAuto=true; // o celular foi preenchido pelo cadastro (não digitado)
+function waHint(){const t=$("cPhone").value.replace(/\D/g,""),h=$("waHint");
+  if(!t){h.hidden=true;return} h.hidden=false;
+  const ok=t.length>=10&&t.length<=11; h.classList.toggle("warn",!ok);
+  h.textContent=ok?"✓ Vai receber aviso no WhatsApp quando o pedido ficar pronto":"Confira o número: DDD + celular";}
+$("cName").addEventListener("input",()=>{const c=clientOf();
+  if(phoneAuto||!$("cPhone").value){$("cPhone").value=c&&c.telefone?fmtPhone(c.telefone):"";phoneAuto=true}
+  if(c&&!pctTouched){pct=+c.desconto||0}else if(!c&&!pctTouched)pct=0;waHint();persist();renderTotals()});
+$("cPhone").addEventListener("input",()=>{phoneAuto=!$("cPhone").value;waHint()});
+$("cPhone").addEventListener("blur",()=>{const t=$("cPhone").value.replace(/\D/g,"");if(t.length>=10&&t.length<=11)$("cPhone").value=fmtPhone(t)});
 
 /* ---------- enviar ---------- */
-function resetOrder(){lines=[];pct=0;pctTouched=false;pay="";mode="balcao";$("cName").value="";$("cPhone").value="";$("cObs").value="";$("cPlace").value="";$("sendErr").textContent="";changed()}
+function resetOrder(){lines=[];pct=0;pctTouched=false;pay="";mode="balcao";$("cName").value="";$("cPhone").value="";phoneAuto=true;$("waHint").hidden=true;$("cObs").value="";$("cPlace").value="";$("sendErr").textContent="";changed()}
 $("sendBtn").addEventListener("click",async()=>{
   if(sending)return; $("sendErr").textContent="";
   if(!lines.length){$("sendErr").textContent="Adicione pelo menos um produto.";return}
@@ -726,6 +741,7 @@ renderCats();renderProducts();renderLines();renderTotals();
 (async function(){
   try{be=await backend()}catch(e){$("loginView").hidden=false;$("lErr").textContent="Não consegui carregar o sistema. Recarregue a página.";return}
   be.onAuth(u=>{
+    if(u) window.__svRole().then(r=>{$("lnkCaixa").hidden=r!=="admin"});
     if(!u){$("appView").hidden=true;$("cartBar").hidden=true;$("loginView").hidden=false;return}
     $("loginView").hidden=true;$("appView").hidden=false;renderTotals();
     if(started)return;started=true;
