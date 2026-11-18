@@ -247,7 +247,7 @@ body.staff .adm,body.staff #funcBody{display:none !important}
 
 <nav class="tabs" role="tablist" aria-label="Seções">
   <button type="button" role="tab" id="tabPedidos" aria-selected="true">Pedidos</button>
-  <button type="button" role="tab" id="tabCardapio" aria-selected="false" class="adm">Cardápio</button>
+  <button type="button" role="tab" id="tabCardapio" aria-selected="false">Cardápio</button>
 </nav>
 
 <p class="note" id="note" hidden></p>
@@ -783,8 +783,8 @@ function addForm(ci){
       <label>Nome<input type="text" id="npName" placeholder="Ex.: Tapioca de frango"></label>
       <label>Preço de venda (R$)<input type="text" inputmode="decimal" id="npPrice" placeholder="Ex.: 12,00"></label>
       <label class="wide">Descrição <small>(opcional)</small><input type="text" id="npDesc" placeholder="Ex.: frango, queijo e orégano"></label>
-      <label>Custo por unidade (R$) <small>(opcional)</small><input type="text" inputmode="decimal" id="npCost" placeholder="Vai para Custos e taxas"></label>
-      <label>Tipo<select id="npTipo"><option value="produto">Produto (CMV)</option><option value="servico">Serviço (CSV)</option></select></label>
+      <label class="adm">Custo por unidade (R$) <small>(opcional)</small><input type="text" inputmode="decimal" id="npCost" placeholder="Vai para Custos e taxas"></label>
+      <label class="adm">Tipo<select id="npTipo"><option value="produto">Produto (CMV)</option><option value="servico">Serviço (CSV)</option></select></label>
     </div>
     <div class="ad-opts">
       <label><input type="checkbox" id="npExtras"> Cliente pode adicionar complementos</label>
@@ -858,6 +858,7 @@ $("menuSave").addEventListener("click",async()=>{
   $("menuSave").disabled=true;$("menuSave").textContent="Salvando...";
   try{
     await be.saveMenu(d);
+    if(document.body.classList.contains("staff")) newCosts={};
     if(Object.keys(newCosts).length) await be.mergeCosts(newCosts);
     const nc=Object.keys(newCosts).length; newCosts={};
     menuDirty=false; draft=JSON.parse(JSON.stringify(d)); renderMenuEditor();
@@ -913,7 +914,7 @@ async function checkEstoque(){
     if(u){
       $("loginView").hidden=true;$("appView").hidden=false;$("lPass").value="";
       setTab("p"); subscribe();
-      window.__svRole().then(r=>{const staff=r!=="admin";document.body.classList.toggle("staff",staff);if(staff){$("estNote").hidden=true;if(!$("cardapioView").hidden)setTab("p")}else checkEstoque();});
+      window.__svRole().then(r=>{const staff=r!=="admin";document.body.classList.toggle("staff",staff);if(staff){$("estNote").hidden=true}else checkEstoque();});
       if(!menuUnsub) menuUnsub=be.watchMenu(d=>{MENU=d&&Array.isArray(d.cats)?d:DEFAULT_MENU;renderFunc(); if(!$("cardapioView").hidden&&!menuDirty){draft=JSON.parse(JSON.stringify(MENU));renderMenuEditor()}});
       unlockAudio();
     } else {
