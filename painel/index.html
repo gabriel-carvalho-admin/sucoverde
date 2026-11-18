@@ -193,6 +193,7 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
 .fclosed li{display:flex;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid var(--line);padding:7px 0;font-size:.92rem}
 .fclosed li.empty{color:var(--muted);border:0}
 .fnote{margin:0;font-size:.82rem;color:var(--muted)}
+.order .disc{font-size:.82rem;color:#b4321c;font-weight:700;margin-top:6px}
 @media print{
   @page{margin:3mm}
   body{background:#fff}
@@ -235,6 +236,7 @@ label.lbl{display:block;font-weight:800;color:var(--bark);margin:14px 0 6px}
     <button type="button" class="btn" id="today">Hoje</button>
     <a class="btn" href="../compras/" style="text-decoration:none">Compras</a>
     <a class="btn" href="../caixa/" style="text-decoration:none">Caixa</a>
+    <a class="btn solid" href="../anotar/" style="text-decoration:none">Anotar pedido</a>
     <a class="btn" href="../vendas/" style="text-decoration:none">Venda avulsa</a>
     <a class="btn" href="../estoque/" style="text-decoration:none">Estoque</a>
     <a class="btn" href="../financeiro/" style="text-decoration:none">Financeiro</a>
@@ -362,7 +364,7 @@ const SITE_URL="https://gabriel-carvalho-admin.github.io/sucoverde/";
 const codeOf=id=>String(id||"").slice(0,4).toUpperCase();
 function nextFor(o){
   if(o.status==="novo") return ["preparo","Começar preparo"];
-  if(o.status==="preparo") return ["pronto",o.modo==="entrega"?"Saiu para entrega":o.origem==="balcao"?"Marcar pronto":"Pronto para retirar"];
+  if(o.status==="preparo") return ["pronto",o.modo==="entrega"?"Saiu para entrega":(o.origem==="balcao"||o.modo==="balcao")?"Marcar pronto":"Pronto para retirar"];
   if(o.status==="pronto") return ["entregue",o.modo==="entrega"?"Entregue":"Retirado"];
   return null;
 }
@@ -392,7 +394,7 @@ function waText(o){
 const waLink=o=>"https://wa.me/55"+o.telefone+"?text="+encodeURIComponent(waText(o));
 let justChanged=null;
 const autoWa=()=>{try{return localStorage.getItem("sv_autowa")!=="0"}catch(e){return true}};
-const ORIG={site:"Site",whatsapp:"WhatsApp",balcao:"Balcão"};
+const ORIG={site:"Site",whatsapp:"WhatsApp",balcao:"Balcão",equipe:"Equipe"};
 const OPEN=["novo","preparo","pronto"];
 
 function tzDate(d){return new Intl.DateTimeFormat("en-CA",{timeZone:"America/Fortaleza",year:"numeric",month:"2-digit",day:"2-digit"}).format(d)}
@@ -513,7 +515,7 @@ function subscribe(){
   unsub=be.watchDay(day,(list,fromCache)=>{
     if(!fromCache){clearTimeout(loadTimer);note("")}
     list.forEach(o=>{o.criado=msOf(o.criado)});
-    const fresh=list.filter(o=>!known.has(o.id)&&o.origem==="site"&&o.status==="novo");
+    const fresh=list.filter(o=>!known.has(o.id)&&(o.origem==="site"||o.origem==="equipe")&&o.status==="novo");
     list.forEach(o=>known.add(o.id));
     if(!firstSnap && fresh.length) alertNew(fresh.length);
     firstSnap=false;
@@ -576,7 +578,7 @@ function render(){
   $("topItems").innerHTML=bars(top,"var(--sun)",v=>v);
 }
 function card(o,n){
-  const where=o.origem==="balcao"?"Venda no balcão":o.modo==="entrega"?"Entrega na Ceasa"+(o.local?": "+o.local:""):"Retirada no balcão";
+  const where=(o.origem==="balcao"||o.modo==="balcao")?"Venda no balcão":o.modo==="entrega"?"Entrega na Ceasa"+(o.local?": "+o.local:""):"Retirada no balcão";
   const items=(o.itens||[]).map(i=>`<li>${+i.q}× ${esc(i.n)}${(i.det&&i.det.length)||(i.ex&&i.ex.length)||i.obs?`<small>${[...(i.det||[]),...(i.ex||[]).map(x=>"+ "+x),i.obs?"Obs.: "+i.obs:""].filter(Boolean).map(esc).join(" · ")}</small>`:""}</li>`).join("");
   const nx=nextFor(o), id=esc(o.id);
   return `<article class="order st-${esc(o.status)}">
@@ -586,6 +588,7 @@ function card(o,n){
     <ul>${items}</ul>
     ${o.obs?`<div class="obs">Obs.: ${esc(o.obs)}</div>`:""}
     ${o.aviso?`<div class="obs">${esc(o.aviso)}</div>`:""}
+    ${o.desconto&&o.desconto.pct?`<div class="disc">Subtotal ${brl(o.subtotal)} · desconto ${String(o.desconto.pct).replace(".",",")}% (− ${brl(o.desconto.valor)})</div>`:""}
     <div class="foot"><span>${brl(o.total)}</span><small>${esc(o.pagamento||"Pagamento não informado")}${o.troco?" · troco p/ "+esc(o.troco):""}</small></div>
     ${n?`<div class="btns2">
       <button type="button" class="btn" data-print="${id}">Imprimir comanda</button>
@@ -631,7 +634,7 @@ function goToday(){if(day!==tzDate(new Date())){day=tzDate(new Date());$("day").
 
 /* ---------- comanda ---------- */
 function printTicket(o,n){
-  const where=o.origem==="balcao"?"BALCÃO":o.modo==="entrega"?"ENTREGA CEASA":"RETIRADA NO BALCÃO";
+  const where=(o.origem==="balcao"||o.modo==="balcao")?"BALCÃO":o.modo==="entrega"?"ENTREGA CEASA":"RETIRADA NO BALCÃO";
   const d=new Date(o.criado||Date.now());
   const dt=new Intl.DateTimeFormat("pt-BR",{timeZone:"America/Fortaleza",day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}).format(d);
   $("printArea").innerHTML=`<div class="tk">
@@ -646,6 +649,7 @@ function printTicket(o,n){
     ${(o.itens||[]).map(i=>`<div class="tk-it"><span><b>${+i.q}x</b> ${esc(i.n)}</span><span>${brl(i.v)}</span></div>${[...(i.det||[]),...(i.ex||[]).map(x=>"+ "+x),i.obs?"OBS: "+i.obs:""].filter(Boolean).map(t=>`<div class="tk-sub">${esc(t)}</div>`).join("")}`).join("")}
     <hr>
     ${o.obs?`<div class="tk-b">OBS: ${esc(o.obs)}</div><hr>`:""}
+    ${o.desconto&&o.desconto.pct?`<div class="tk-it"><span>Subtotal</span><span>${brl(o.subtotal)}</span></div><div class="tk-it"><span>Desconto ${String(o.desconto.pct).replace(".",",")}%</span><span>- ${brl(o.desconto.valor)}</span></div>`:""}
     <div class="tk-it tk-b"><span>TOTAL</span><span>${brl(o.total)}</span></div>
     <div>Pagamento: ${esc(o.pagamento||"-")}${o.troco?" · troco p/ "+esc(o.troco):""}</div>
     <div class="tk-c" style="margin-top:8px">Obrigado pela preferência!</div>

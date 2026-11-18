@@ -651,7 +651,7 @@ const r2=v=>Math.round(v*100)/100;
 const DEFAULT_MENU=JSON.parse($("menuData").textContent);
 const COLORS=["#2a78d6","#eb6834","#1baf7a","#eda100","#e87ba4","#008300","#6250d6","#e34948"];
 const OTHER="#b9b0a3", BRAND="#1f6b2a", CARD="#fffaf1";
-const ORIG={site:"Site",whatsapp:"WhatsApp",balcao:"Balcão"};
+const ORIG={site:"Site",whatsapp:"WhatsApp",balcao:"Balcão",equipe:"Equipe"};
 const MESES=["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
 const MES3=["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
 const WORKDAYS=26; // segunda a sábado
@@ -799,8 +799,9 @@ function compute(orders){
     const t=+o.total||0; fatO+=t; dayO[o.dia]=(dayO[o.dia]||0)+t;
     if(!cx[o.dia]){taxas+=t*feeOf(o.pagamento);const k=o.pagamento||"Não informado";byPay[k]=(byPay[k]||0)+t}
     const g=ORIG[o.origem]||"Outro";byOrig[g]=(byOrig[g]||0)+t;
+    const fd=(+o.subtotal>0&&+o.total>=0)?(+o.total)/(+o.subtotal):1;
     (o.itens||[]).forEach(i=>{
-      const q=+i.q||0, v=+i.v||0; let base=v;
+      const q=+i.q||0, v=(+i.v||0)*fd; let base=v;
       (i.ex||[]).forEach(x=>{const pr=(xp[x]||0)*q; if(pr>0&&pr<=base){base-=pr;add(x,q,pr)} else add(x,q,0)});
       add(i.n,q,base);
     });
@@ -1358,7 +1359,7 @@ const fileTag=()=>{const [a,b]=range();return a===b?a:a+"_a_"+b};
 $("btnCsv").addEventListener("click",()=>{
   const xp=extraPrices(), rows=[["Data","Hora","Código","Canal","Cliente","Pagamento","Status","Produto","Tipo","Quantidade","Faturamento (R$)","Custo (R$)","Lucro bruto (R$)"]];
   ORDERS.forEach(o=>{const h=new Intl.DateTimeFormat("pt-BR",{timeZone:"America/Fortaleza",hour:"2-digit",minute:"2-digit"}).format(new Date(o.criado||0));
-    (o.itens||[]).forEach(i=>{const q=+i.q||0;let base=+i.v||0;const lines=[];(i.ex||[]).forEach(x=>{const pr=(xp[x]||0)*q;if(pr>0&&pr<=base){base-=pr;lines.push([x,pr])}else lines.push([x,0])});lines.unshift([i.n,base]);
+    const fd=(+o.subtotal>0)?(+o.total)/(+o.subtotal):1;(o.itens||[]).forEach(i=>{const q=+i.q||0;let base=(+i.v||0)*fd;const lines=[];(i.ex||[]).forEach(x=>{const pr=(xp[x]||0)*q;if(pr>0&&pr<=base){base-=pr;lines.push([x,pr])}else lines.push([x,0])});lines.unshift([i.n,base]);
       lines.forEach(([n,rev])=>{const c=costOf(n);rows.push([brY(o.dia),h,String(o.id).slice(0,4).toUpperCase(),ORIG[o.origem]||"",o.cliente||"",o.pagamento||"",o.status,n,c.tipo==="servico"?"Serviço":"Produto",String(q),o.status==="cancelado"?0:rev,o.status==="cancelado"?0:q*c.custo,o.status==="cancelado"?0:rev-q*c.custo])})})});
   download("suco-verde-vendas_"+fileTag()+".csv",rows);
 });
